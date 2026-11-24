@@ -184,6 +184,22 @@ async def audit_repo(repo: Path) -> dict[str, Any]:
         return {"repo": repo.name, "error": "unparseable", "raw": (final.result or "")[:500]}
 
 
+async def audit_many(repos: list[Path], concurrency: int) -> list[dict[str, Any]]:
+    sem = asyncio.Semaphore(concurrency)
+
+    async def bounded(repo: Path) -> dict[str, Any]:
+        async with sem:
+            try:
+                return await audit_repo(repo)
+            except Exception as exc:
+                # One raised SDK run must not drop the other repos.
+                detail = f"{type(exc).__name__}: {exc}"[:500]
+                print(f"audit exception {repo.name}: {detail}", file=sys.stderr)
+                return {"repo": repo.name, "error": "exception", "raw": detail}
+
+    return list(await asyncio.gather(*(bounded(r) for r in repos)))
+
+
 async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("repos", nargs="+", type=Path)
@@ -191,19 +207,17 @@ async def main() -> None:
     ap.add_argument("--concurrency", type=int, default=4)
     ns = ap.parse_args()
 
-    sem = asyncio.Semaphore(ns.concurrency)
-
-    async def bounded(repo: Path) -> dict[str, Any]:
-        async with sem:
-            return await audit_repo(repo)
-
-    results = await asyncio.gather(*(bounded(r) for r in ns.repos))
+    results = await audit_many(ns.repos, ns.concurrency)
     with ns.out.open("w") as fh:
         for row in results:
             fh.write(json.dumps(row) + "\n")
 
     flagged = sum(r.get("leakage") in {"suspected", "confirmed"} for r in results)
-    print(f"audited {len(results)} repos; {flagged} flagged -> {ns.out}", file=sys.stderr)
+    failed = sum("error" in r for r in results)
+    print(
+        f"audited {len(results)} repos; {flagged} flagged; {failed} errors -> {ns.out}",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":
