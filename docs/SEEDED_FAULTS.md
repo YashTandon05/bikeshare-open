@@ -798,3 +798,151 @@ python exit=0
 ### Canonical file
 
 `sha256sum data/raw/bike_daily.csv` gave `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc` before the isolated run, after it, and after the unit tests. `git status --porcelain data/ reports/` printed nothing. After this checkpoint, `make test`: `21 passed`, `exit=0`.
+
+## Fault: rolling-leakage (post-hardening recheck)
+
+This re-runs the same fault against the hardened `test_rolling_mean_excludes_today` (`7d64596`), which now asserts that its reference window is complete instead of skipping. It is a recheck, not a new prescribed fault: the distinct-fault count stays 4/4, and the original "Fault: rolling-leakage" record (`6f69ea5`) above is unchanged.
+
+- Date: 2026-11-24, run with `/seed-fault rolling-leakage`
+- Starting commit: `7d64596` (clean tree; pre-check `make test`: 21 passed in 1.25s, exit=0)
+- Evidence directory: `/tmp/seed-fault-rolling-leakage-20261124T132210-YayI`
+- Raw CSV sha256 before: `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc`; after repair: `sha256sum -c` printed `data/raw/bike_daily.csv: OK`
+- Seed `Edit` used the table's exact `old_string`/`new_string`, with no added context.
+
+### Change
+
+```diff
+diff --git a/src/features.py b/src/features.py
+index 3a3c96e..010b64b 100644
+--- a/src/features.py
++++ b/src/features.py
+@@ -73,7 +73,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
+     # If you add a longer lag, raise LAG_WARMUP in src/config.py.
+     out["cnt_lag_1"] = out[TARGET].shift(1)
+     out["cnt_lag_7"] = out[TARGET].shift(WEEK_DAYS)
+-    out["cnt_roll_7"] = out[TARGET].shift(1).rolling(WEEK_DAYS).mean()
++    out["cnt_roll_7"] = out[TARGET].rolling(WEEK_DAYS).mean()
+     # Population std (ddof=0); pandas defaults to the sample std (ddof=1).
+     out["cnt_std_7"] = out[TARGET].shift(1).rolling(WEEK_DAYS).std(ddof=0)
+ 
+```
+
+`git diff --numstat -- src/`:
+
+```
+1	1	src/features.py
+```
+
+### Automatic hook feedback (PostToolUse)
+
+Shown by Claude Code right after the seeding `Edit`. Copied verbatim. Exit code: 2, inferred from the blocking-error report (Claude Code does not display it).
+
+```
+PostToolUse:Edit hook blocking error from command: "${CLAUDE_PROJECT_DIR}/.claude/hooks/check_leakage.sh": [${CLAUDE_PROJECT_DIR}/.claude/hooks/check_leakage.sh]: Leakage tests failed after editing /home/ytandon/dsc180-methodology/bikeshare-open/src/features.py:
+
+    def test_rolling_mean_excludes_today(feats):
+        """cnt_roll_7 must be the mean of the 7 calendar days *before* today."""
+        by_date = feats.set_index("dteday")[TARGET]
+        date = feats.dteday.iloc[200]
+        window = [date - pd.Timedelta(days=k) for k in range(1, 8)]
+        missing = [d.date() for d in window if d not in by_date.index]
+        assert not missing, f"reference window for {date.date()} has gaps: {missing}"
+        expected = sum(by_date[d] for d in window) / 7
+>       assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
+E       assert np.float64(4389.0) == 4414.857142857143 ± 0.00441486
+E         
+E         comparison failed
+E         Obtained: 4389.0
+E         Expected: 4414.857142857143 ± 0.00441486
+
+tests/test_leakage.py:58: AssertionError
+======================================================================= short test summary info ========================================================================
+FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.float64(4389.0) == 4414.857142857143 ± 0.00441486
+1 failed, 8 passed in 0.40s
+```
+
+### Manual hook diagnostic (run by hand, not the automatic trigger)
+
+Run while the fault was in place by piping a synthetic payload into the hook script. Exit code measured: `exit=` is the last line.
+
+```
+$ printf '{"tool_input":{"file_path":"%s"}}' "$PWD/src/features.py" \
+    | CLAUDE_PROJECT_DIR="$PWD" .claude/hooks/check_leakage.sh; echo "exit=$?"
+Leakage tests failed after editing /home/ytandon/dsc180-methodology/bikeshare-open/src/features.py:
+
+    def test_rolling_mean_excludes_today(feats):
+        """cnt_roll_7 must be the mean of the 7 calendar days *before* today."""
+        by_date = feats.set_index("dteday")[TARGET]
+        date = feats.dteday.iloc[200]
+        window = [date - pd.Timedelta(days=k) for k in range(1, 8)]
+        missing = [d.date() for d in window if d not in by_date.index]
+        assert not missing, f"reference window for {date.date()} has gaps: {missing}"
+        expected = sum(by_date[d] for d in window) / 7
+>       assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
+E       assert np.float64(4389.0) == 4414.857142857143 ± 0.00441486
+E         
+E         comparison failed
+E         Obtained: 4389.0
+E         Expected: 4414.857142857143 ± 0.00441486
+
+tests/test_leakage.py:58: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.fl...
+1 failed, 8 passed in 0.39s
+exit=2
+```
+
+### Red test output
+
+As predicted, only `test_rolling_mean_excludes_today` went red. The new window-completeness assertion passed, so the test reached the comparison: it got 4389.0 against an expected 4414.857142857143, the same values as the original run. The hardened test still catches the leak and now cannot skip it. Suite size: 21 tests, up from 19 at `6f69ea5`. `make` exits 2 when a recipe fails.
+
+```
+$ make test
+python -m pytest tests/ -q
+.............F.......                                                    [100%]
+=================================== FAILURES ===================================
+_______________________ test_rolling_mean_excludes_today _______________________
+
+feats =         dteday  instant  season  ...  cnt_lag_7   cnt_roll_7    cnt_std_7
+0   2011-01-10     10.0  WINTER  ...     134....428571   820.919420
+713 2012-12-31    731.0  WINTER  ...      920.0  1789.857143   821.327646
+
+[714 rows x 29 columns]
+
+    def test_rolling_mean_excludes_today(feats):
+        """cnt_roll_7 must be the mean of the 7 calendar days *before* today."""
+        by_date = feats.set_index("dteday")[TARGET]
+        date = feats.dteday.iloc[200]
+        window = [date - pd.Timedelta(days=k) for k in range(1, 8)]
+        missing = [d.date() for d in window if d not in by_date.index]
+        assert not missing, f"reference window for {date.date()} has gaps: {missing}"
+        expected = sum(by_date[d] for d in window) / 7
+>       assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
+E       assert np.float64(4389.0) == 4414.857142857143 ± 0.00441486
+E         
+E         comparison failed
+E         Obtained: 4389.0
+E         Expected: 4414.857142857143 ± 0.00441486
+
+tests/test_leakage.py:58: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.fl...
+1 failed, 20 passed in 1.32s
+make: *** [Makefile:16: test] Error 1
+exit=2
+```
+
+### Repair
+
+Counting convention: we count from the end of evidence capture to the first fully green `make test`, and we do not count conversational turns. A repair tool call is any tool call in that span. A repair cycle is one attempted edit to `src/` followed by one `make test`. The agent seeded this fault itself, so both numbers are lower bounds, not a measure of blind diagnosis.
+
+- Repair tool calls: **2** (1 `Edit` restoring `.shift(1)`; 1 Bash verification running `make test`)
+- Repair cycles: **1**
+- Automatic hook after the repair `Edit`: silent (no feedback appeared)
+- `git diff --quiet -- src/`: printed `src/ identical to HEAD`
+
+```
+$ make test
+21 passed in 1.25s
+exit=0
+```
