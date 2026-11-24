@@ -3,6 +3,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw" / "bike_daily.csv"
+# Trusted SHA-256 of RAW, typed out by hand and never computed from the file
+# on disk. load_raw() refuses any other bytes. If they differ, restore the
+# file; do not change this constant (docs/SEEDED_FAULTS.md, fault 4).
+RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"
 PROCESSED = ROOT / "data" / "processed" / "features.parquet"
 METRICS = ROOT / "reports" / "metrics.json"
 

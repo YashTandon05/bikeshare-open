@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, fault 4 (Bash raw-data copy) run from `a0d7ab1`.
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, checksum-defense checkpoint (after `b080d81`).
 
 Each criterion has two boxes:
 
@@ -14,9 +14,9 @@ Each criterion has two boxes:
 |---|---|---|---|
 | 1 | Reproducible repository | 15 | Partly done |
 | 2 | `CLAUDE.md` | 10 | Partly done |
-| 3 | Verification suite | 25 | Feature, contract and weather-guard tests done; all 4 faults recorded. Fault 4 left the suite green |
+| 3 | Verification suite | 25 | Feature, contract, weather-guard, checksum and hardened rolling-mean tests; all 4 faults recorded (fault 4 left the pre-defense suite green) |
 | 4 | Results with baselines | 20 | Validation measured; no report |
-| 5 | Structural enforcement | 10 | Hook fired automatically on faults 1-3; did not fire on fault 4 (Bash), as the `Edit\|Write` matcher predicts. Catch named; implementation next checkpoint |
+| 5 | Structural enforcement | 10 | Hook fired automatically on faults 1-3; did not fire on fault 4 (Bash), as the `Edit\|Write` matcher predicts. Fault-4 catch (checksum in `load_raw()`) implemented and shown in an isolated copy |
 | 6 | Agent configuration | 10 | `/seed-fault` written; all three arguments run (faults 1-3); audits not started |
 | 7 | Decisions and attribution | 10 | Ongoing decision log; no Attribution section |
 
@@ -30,7 +30,7 @@ Each criterion has two boxes:
 | [x] | [ ] | Dependencies pinned, including any added ones | `requirements.txt` (nothing added so far) |
 | [x] | [ ] | `.gitignore` no longer ignores `reports/` but still ignores `data/processed/`, `.venv/`, caches | `.gitignore`, changed in `d85aa8a` |
 | [x] | [ ] | `data/processed/`, `.venv/`, `__pycache__/`, `.pytest_cache/` not committed | `git ls-files` shows none at `935ecdf` |
-| [x] | [ ] | `data/raw/bike_daily.csv` unchanged (sha256 starts `a6bed1577f6e4de5`) | Full hash `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc` confirmed after the fault-4 restore: byte-identical to the backup, no `git diff` (`docs/SEEDED_FAULTS.md` "Fault 4: Bash raw-data copy" > "Restoration"). That was the planned post-fault-4 recheck. Verified waits for a fresh-clone check at submission |
+| [x] | [ ] | `data/raw/bike_daily.csv` unchanged (sha256 starts `a6bed1577f6e4de5`) | Full hash `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc` confirmed after the fault-4 restore (`b080d81`), and again before and after the isolated checksum demonstration (`docs/SEEDED_FAULTS.md` "Fault 4 defense" > "Canonical file"). `load_raw()` now enforces it as `RAW_SHA256`. Verified waits for a fresh-clone check at submission |
 | [ ] | [ ] | Fresh clone, `pip install -r requirements.txt`, `make all`, then diff with committed metrics and the `REPORT.md` table | Not done |
 
 ## 2. `CLAUDE.md` (10)
@@ -43,7 +43,7 @@ Each criterion has two boxes:
 | [x] | [ ] | The command that reproduces the headline number, named as such | `CLAUDE.md` Commands: "`make all` ... reproduces the headline metrics in `reports/metrics.json`" |
 | [ ] | [ ] | Rule for our feature, if needed | Not decided |
 | [x] | [ ] | Name of our custom skill | `CLAUDE.md` Commands: `/seed-fault <forbidden-column\|rolling-leakage\|weather-guard>` |
-| [x] | [ ] | Under 60 lines | 46 lines at this checkpoint |
+| [x] | [ ] | Under 60 lines | 48 lines at this checkpoint (added the checksum-mismatch gotcha) |
 | [ ] | [ ] | Every line changes agent behavior (the grader deletes lines one at a time) | Not reviewed |
 | [x] | n/a | Changes recorded in `DECISIONS.md` | Tracker line, see `docs/DECISIONS.md` |
 
@@ -56,7 +56,9 @@ Each criterion has two boxes:
 | [x] | [ ] | Feature test checks a value on a named date against a hand-computed value from strictly earlier dates | 2011-02-01, expected 499.70 from the counts for Jan 25-31 |
 | [x] | [ ] | Unclassified-column test in `tests/test_contract.py` | `test_raw_columns_are_all_classified`, with the hand-typed `CLASSIFIED_RAW_COLS` in `src/config.py` (`935ecdf`) |
 | [x] | [ ] | Unknown-column rejection shown | `docs/SEEDED_FAULTS.md` "Unclassified raw column rejected": `AssertionError: unclassified raw columns: ['surge_index']` |
-| [x] | [ ] | `make test` passes | `19 passed in 1.29s` at the fault-workflow checkpoint (`18 passed` at `935ecdf`) |
+| [x] | [ ] | `make test` passes | `21 passed in 1.16s`, `exit=0` at the checksum-defense checkpoint (`docs/SEEDED_FAULTS.md` "Fault 4 defense" > "Unit tests") |
+| [x] | [ ] | Raw-data checksum tests (temporary files; canonical CSV untouched) | `tests/test_contract.py::test_load_raw_accepts_trusted_bytes` PASSED, `::test_load_raw_rejects_fault4_alteration` PASSED (`docs/SEEDED_FAULTS.md` "Fault 4 defense" > "Unit tests") |
+| [x] | [ ] | `test_rolling_mean_excludes_today` cannot pass vacuously | The conditional skip is now an assertion that the reference window is complete (`tests/test_leakage.py`). PASSED in the same run. A post-hardening `rolling-leakage` recheck is pending; it gets its own heading, and the original `6f69ea5` record stays as it is |
 | [x] | [ ] | Fault 1 (forbidden column in `feature_columns`): real red output pasted | `4f3703c`, `docs/SEEDED_FAULTS.md` "Fault: forbidden-column" > "Red test output": `FAILED tests/test_leakage.py::test_no_forbidden_features`, `1 failed, 18 passed`, `exit=2` |
 | [x] | [ ] | Fault 2 (`.shift(1)` removed from `cnt_roll_7`): real red output pasted | `docs/SEEDED_FAULTS.md` "Fault: rolling-leakage" > "Red test output": `FAILED tests/test_leakage.py::test_rolling_mean_excludes_today`, `1 failed, 18 passed`, `exit=2` |
 | [x] | [ ] | Fault 3 (`raise` removed from the weather encoder): real red output pasted | `docs/SEEDED_FAULTS.md` "Fault: weather-guard" > "Red test output": `FAILED tests/test_leakage.py::test_unknown_weather_label_is_rejected` (`DID NOT RAISE ValueError`), `1 failed, 18 passed`, `exit=2`. Only that test, added in `6fb1c66`, catches this fault |
@@ -81,7 +83,7 @@ Each criterion has two boxes:
 | [x] | [ ] | Starter hook and permissions still work | `.claude/settings.json` unchanged except `model`; the hook fired on a `src/features.py` edit while building `935ecdf` (a `NameError` from an edit made in two steps) |
 | [x] | [ ] | Hook stderr pasted for faults 1-3 | 3 of 3. Automatic PostToolUse feedback appeared after each seeding `Edit` and was recorded verbatim under "Automatic hook feedback (PostToolUse)" in `docs/SEEDED_FAULTS.md`: "Fault: forbidden-column" (`4f3703c`), "Fault: rolling-leakage" (`6f69ea5`), "Fault: weather-guard". Each also has a separately labelled manual diagnostic with measured `exit=2` |
 | [x] | [ ] | Fault 4: paragraph naming what would catch it (`Stop` hook, `PreToolUse` on Bash, filesystem permission, or a hash check in `make data`) | `docs/SEEDED_FAULTS.md` "Fault 4" > "What would catch it": a sha256 check in `load_raw()` against `RAW_SHA256` in `src/config.py`. It also explains why a `Stop` hook running `make test` alone would miss this fault |
-| [ ] | [ ] | Optional (up to 3 pts): implement the fault-4 catch | Planned for the next checkpoint: a checksum in `load_raw()`. Not implemented |
+| [x] | [ ] | Optional (up to 3 pts): implement the fault-4 catch | `RAW_SHA256` in `src/config.py` and a sha256 check in `src/ingest.py::load_raw()`. **Observed:** in an isolated `TemporaryDirectory` project copy, `make data` printed `OK ingest: 728 rows` (`exit=0`) with trusted bytes and `ValueError: raw data checksum mismatch ... expected sha256 a6bed157...dc, got cae60e1c...ac` (`exit=2`) with the one-byte change. **Not observed:** the same demonstration on the canonical file; its preparation command was denied (no reason given) and not retried. Detects corruption on load; does not prevent the `cp` |
 
 ## 6. Agent configuration (10)
 
@@ -128,7 +130,7 @@ Each criterion has two boxes:
 | [x] | 1. Unmodified starter, the first commit | `0654988` |
 | [x] | 2. Failing test for the feature | `e21af14` |
 | [x] | 3. Feature that makes the test pass | `b03f86b` (kept and refactored in `935ecdf`) |
-| [ ] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | 4 of 4 recorded: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1`, and fault 4 in the commit that adds this line. Tick at the next checkpoint, once that commit's hash can be cited |
+| [x] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | 4 of 4 distinct faults committed: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1`, Bash raw-data copy `b080d81`. Later rechecks (e.g. the post-hardening `rolling-leakage` run) do not change the count of 4 |
 | [ ] | 5. Audit run | Not started |
 | [ ] | 6. Report | Not started |
 

@@ -52,9 +52,10 @@ def test_rolling_mean_excludes_today(feats):
     by_date = feats.set_index("dteday")[TARGET]
     date = feats.dteday.iloc[200]
     window = [date - pd.Timedelta(days=k) for k in range(1, 8)]
-    if all(d in by_date.index for d in window):
-        expected = sum(by_date[d] for d in window) / 7
-        assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
+    missing = [d.date() for d in window if d not in by_date.index]
+    assert not missing, f"reference window for {date.date()} has gaps: {missing}"
+    expected = sum(by_date[d] for d in window) / 7
+    assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
 
 
 def test_rolling_std_excludes_today(feats):

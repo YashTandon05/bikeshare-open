@@ -666,3 +666,135 @@ Other catches the rubric names: a `PreToolUse` hook on `Bash` that blocks comman
 ### Restoration
 
 Inside the same call: `restore cp exit=0`, `cmp` byte-identical to the backup, full hash `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc`, no `git diff` for the raw CSV, and `make test` printed `19 passed` with `exit=0`. The `EXIT` trap then ran its own restore and printed the same hash. A separate later Bash call confirmed the same full hash, byte equality with the backup, and `git status --porcelain` empty.
+
+## Fault 4 defense: raw-data checksum in `load_raw()`
+
+The fault-4 record above stays as it was: before this defense, the altered raw file passed all 19 tests. This section records the fix and the evidence for it.
+
+### Implementation
+
+- `src/config.py`: `RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"`, typed out by hand. It is never computed from the file on disk.
+- `src/ingest.py`: `file_sha256(path)` hashes the file bytes with `hashlib` (standard library only). `load_raw()` checks the hash **before** parsing, and on a mismatch raises `ValueError` naming the expected and actual digests and telling the reader to restore the file, not edit `RAW_SHA256`. The existing column and row checks run after it, unchanged. Nothing rewrites the file or updates the reference.
+- Every stage and test fixture loads through `load_raw()`: `make data`, `make features`, `make train`, and the fixtures in `tests/`. A changed raw file therefore stops the pipeline and turns `make test` red.
+- **Scope:** this **detects** corrupted data when it is loaded. It does **not prevent** Bash, or anything else, from copying over `data/raw/bike_daily.csv`. The fault-4 `cp` would still succeed. What changes is that no number can be produced from the altered bytes.
+
+Test hardening in the same checkpoint: `test_rolling_mean_excludes_today` used to wrap its check in `if all(d in by_date.index for d in window):`, so it would pass vacuously if its reference window had a gap. It now asserts the window is complete (`reference window for <date> has gaps: [...]`), then always computes and compares the mean. The reference date (`feats.dteday.iloc[200]`) and the expected-value formula are unchanged.
+
+### Unit tests (temporary files only)
+
+`tests/test_contract.py::test_load_raw_accepts_trusted_bytes` copies the trusted bytes to pytest's `tmp_path`, monkeypatches `src.ingest.RAW` to that copy, and calls `load_raw()` (728 rows). `test_load_raw_rejects_fault4_alteration` applies the fault-4 change to a `tmp_path` copy and expects a `ValueError` matching `expected sha256 a6bed157...dc, got cae60e1c...ac`. Both then assert the canonical file's hash is still `RAW_SHA256`. Real output:
+
+```
+$ python -m pytest -v tests/test_contract.py::test_load_raw_accepts_trusted_bytes tests/test_contract.py::test_load_raw_rejects_fault4_alteration tests/test_leakage.py::test_rolling_mean_excludes_today
+tests/test_contract.py::test_load_raw_accepts_trusted_bytes PASSED       [ 33%]
+tests/test_contract.py::test_load_raw_rejects_fault4_alteration PASSED   [ 66%]
+tests/test_leakage.py::test_rolling_mean_excludes_today PASSED           [100%]
+============================== 3 passed in 1.02s ===============================
+exit=0
+$ make test
+21 passed in 1.16s
+exit=0
+```
+
+### Live demonstration on the canonical file: denied
+
+The plan was to repeat fault 4 against the real `data/raw/bike_daily.csv`: back it up, set an EXIT restore trap, `cp` the altered copy over it, then run `make data`. The **preparation** command, which only backed up and hashed the file, was denied before anything ran. It was not retried. Exact command:
+
+```bash
+cd /home/ytandon/dsc180-methodology/bikeshare-open; git status --porcelain; T=$(mktemp -d "/tmp/checksum-defense-$(date +%Y%m%dT%H%M%S)-XXXX") && echo "T=$T"
+cp -p data/raw/bike_daily.csv "$T/bike_daily.backup.csv"; echo "backup cp exit=$?"
+sha256sum data/raw/bike_daily.csv "$T/bike_daily.backup.csv"; cmp data/raw/bike_daily.csv "$T/bike_daily.backup.csv" && echo "backup byte-identical"
+```
+
+Denial message, verbatim:
+
+```
+Permission to use Bash with command cd /home/ytandon/dsc180-methodology/bikeshare-open; git status --porcelain; T=$(mktemp -d "/tmp/checksum-defense-$(date +%Y%m%dT%H%M%S)-XXXX") && echo "T=$T"
+cp -p data/raw/bike_daily.csv "$T/bike_daily.backup.csv"; echo "backup cp exit=$?"
+sha256sum data/raw/bike_daily.csv "$T/bike_daily.backup.csv"; cmp data/raw/bike_daily.csv "$T/bike_daily.backup.csv" && echo "backup byte-identical" has been denied.
+```
+
+Reason: not provided. The message gives none. No permissions were changed in response, and no `cp` over the canonical file was attempted in this checkpoint.
+
+### Isolated CLI demonstration (disposable project copy)
+
+Instead, a throwaway project was built with `tempfile.TemporaryDirectory`. It held a copy of `Makefile`, `src/` (without `__pycache__`), and the trusted CSV's bytes at `data/raw/bike_daily.csv` inside the temporary directory. `make data` ran with `cwd` set to that directory. `src/config.py` resolves `RAW` relative to its own location, so the copied code read only the temporary CSV. The one-byte change was applied only to the temporary CSV. The canonical file was read once, to copy its bytes, and hashed before and after; it was never opened for writing. Script, run from the repo root as `python - <<'PY' | tee <log>`:
+
+```python
+import hashlib, shutil, subprocess, tempfile
+from pathlib import Path
+
+REPO = Path.cwd()
+CANON = REPO / "data/raw/bike_daily.csv"
+sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+
+canon_before = sha(CANON)
+print("canonical sha256 before:", canon_before)
+
+with tempfile.TemporaryDirectory(prefix="bikeshare-isolated-") as tmp:
+    proj = Path(tmp)
+    shutil.copy2(REPO / "Makefile", proj / "Makefile")
+    shutil.copytree(REPO / "src", proj / "src", ignore=shutil.ignore_patterns("__pycache__"))
+    raw = proj / "data/raw/bike_daily.csv"
+    raw.parent.mkdir(parents=True)
+    raw.write_bytes(CANON.read_bytes())
+    print("temp project:", proj)
+    print("temp CSV path:", raw, "| is canonical path:", raw.resolve() == CANON.resolve())
+
+    def make_data(label):
+        r = subprocess.run(["make", "data"], cwd=proj, capture_output=True, text=True)
+        print(f"--- make data ({label}), cwd={proj} ---")
+        print(r.stdout + r.stderr, end="")
+        print(f"exit={r.returncode}")
+
+    print("temp CSV sha256 (trusted copy):", sha(raw))
+    make_data("trusted bytes")
+
+    data = raw.read_bytes()
+    old, new = b',"TUE",1.032178,', b',"TUE",1.042178,'
+    assert data.count(old) == 1
+    raw.write_bytes(data.replace(old, new))
+    diff = [(i, a, b) for i, (a, b) in enumerate(zip(data, raw.read_bytes())) if a != b]
+    print("bytes differing (offset, old, new):", [(i, chr(a), chr(b)) for i, a, b in diff])
+    print("temp CSV sha256 (altered):", sha(raw))
+    make_data("altered temp CSV")
+
+canon_after = sha(CANON)
+print("canonical sha256 after: ", canon_after)
+print("canonical unchanged:", canon_before == canon_after)
+```
+
+Output, verbatim. The changed byte is at 0-based offset 3615, which is the same byte `cmp -l` reported as 1-based 3616 in fault 4. `make` exits 2 when its recipe fails, and the recipe failed with Python's `ValueError`:
+
+```
+canonical sha256 before: a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc
+temp project: /tmp/bikeshare-isolated-7b8238mi
+temp CSV path: /tmp/bikeshare-isolated-7b8238mi/data/raw/bike_daily.csv | is canonical path: False
+temp CSV sha256 (trusted copy): a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc
+--- make data (trusted bytes), cwd=/tmp/bikeshare-isolated-7b8238mi ---
+python -m src.ingest
+OK ingest: 728 rows, 2011-01-03 -> 2012-12-31
+exit=0
+bytes differing (offset, old, new): [(3615, '3', '4')]
+temp CSV sha256 (altered): cae60e1ce7bc3229d1019db51930e4a88911978264206bb0abe8c187157a92ac
+--- make data (altered temp CSV), cwd=/tmp/bikeshare-isolated-7b8238mi ---
+python -m src.ingest
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/tmp/bikeshare-isolated-7b8238mi/src/ingest.py", line 58, in <module>
+    df = load_raw()
+         ^^^^^^^^^^
+  File "/tmp/bikeshare-isolated-7b8238mi/src/ingest.py", line 42, in load_raw
+    raise ValueError(
+ValueError: raw data checksum mismatch for /tmp/bikeshare-isolated-7b8238mi/data/raw/bike_daily.csv: expected sha256 a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc, got cae60e1ce7bc3229d1019db51930e4a88911978264206bb0abe8c187157a92ac. Restore the trusted file (git checkout -- data/raw/bike_daily.csv); do not edit RAW_SHA256 to match.
+make: *** [Makefile:7: data] Error 1
+exit=2
+canonical sha256 after:  a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc
+canonical unchanged: True
+python exit=0
+```
+
+### Canonical file
+
+`sha256sum data/raw/bike_daily.csv` gave `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc` before the isolated run, after it, and after the unit tests. `git status --porcelain data/ reports/` printed nothing. After this checkpoint, `make test`: `21 passed`, `exit=0`.

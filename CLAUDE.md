@@ -40,6 +40,8 @@ rides) from calendar, weather, and lagged-demand features.
 - The mirror in `DATA_URL` is missing 2011-03-10. It is NOT the UCI file:
   728 rows from 2011-01-03, not 731 from 2011-01-01.
 - `weather` uses the labels `GOOD` / `MISTY` / `BAD`, not the UCI codes 1-4.
+- A `load_raw()` checksum mismatch means the raw CSV changed. Investigate,
+  then restore the trusted file; never edit `RAW_SHA256` to match.
 - Ridership grew ~65% from 2011 to 2012, so tree models trained on 2011
   cannot extrapolate to 2012. That is the headline result, not an error.
 - 2012-10-29 (Hurricane Sandy, 22 rides) is in the test set. Expect it in

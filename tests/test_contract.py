@@ -3,12 +3,15 @@ import pandas as pd
 import pytest
 from sklearn.metrics import r2_score
 
+import src.ingest as ingest
 from src.config import (
     CLASSIFIED_RAW_COLS,
     DATE_COL,
     FORBIDDEN,
     LAG_WARMUP,
     PREDICTOR_INPUT_COLS,
+    RAW,
+    RAW_SHA256,
     TARGET,
 )
 from src.features import build_features, feature_columns, reindex_to_calendar
@@ -57,6 +60,32 @@ def test_guard_rejects_unclassified_numeric_column(raw):
     tampered["surge_index"] = 1.0
     with pytest.raises(AssertionError, match="surge_index"):
         assert_all_columns_classified(tampered)
+
+
+# The fault-4 alteration: temp on 2011-02-01, 1.032178 -> 1.042178 (one byte).
+FAULT4_OLD = b',"TUE",1.032178,'
+FAULT4_NEW = b',"TUE",1.042178,'
+FAULT4_SHA256 = "cae60e1ce7bc3229d1019db51930e4a88911978264206bb0abe8c187157a92ac"
+
+
+def test_load_raw_accepts_trusted_bytes(tmp_path, monkeypatch):
+    copy = tmp_path / "bike_daily.csv"
+    copy.write_bytes(RAW.read_bytes())
+    monkeypatch.setattr(ingest, "RAW", copy)
+    df = ingest.load_raw()
+    assert len(df) == 728
+    assert ingest.file_sha256(RAW) == RAW_SHA256, "canonical raw CSV changed"
+
+
+def test_load_raw_rejects_fault4_alteration(tmp_path, monkeypatch):
+    original = RAW.read_bytes()
+    assert original.count(FAULT4_OLD) == 1
+    altered = tmp_path / "bike_daily.csv"
+    altered.write_bytes(original.replace(FAULT4_OLD, FAULT4_NEW))
+    monkeypatch.setattr(ingest, "RAW", altered)
+    with pytest.raises(ValueError, match=f"expected sha256 {RAW_SHA256}, got {FAULT4_SHA256}"):
+        ingest.load_raw()
+    assert ingest.file_sha256(RAW) == RAW_SHA256, "canonical raw CSV changed"
 
 
 def test_calendar_is_complete_before_lagging(raw):
