@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, fault-workflow preparation checkpoint (after `63b4e61`).
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, seed-fault skill corrections (after `6fb1c66`).
 
 Each criterion has two boxes:
 
@@ -79,7 +79,7 @@ Each criterion has two boxes:
 | Impl | Verified | Criterion | Evidence |
 |---|---|---|---|
 | [x] | [ ] | Starter hook and permissions still work | `.claude/settings.json` unchanged except `model`; the hook fired on a `src/features.py` edit while building `935ecdf` (a `NameError` from an edit made in two steps) |
-| [ ] | [ ] | Hook stderr pasted for faults 1-3 | Not started |
+| [ ] | [ ] | Hook stderr pasted for faults 1-3 | Not started. Tick only when the *automatic* PostToolUse feedback appeared; the manual diagnostic (also recorded, with its measured exit code) does not count |
 | [ ] | [ ] | Fault 4: paragraph naming what would catch it (`Stop` hook, `PreToolUse` on Bash, filesystem permission, or a hash check in `make data`) | Not started |
 | [ ] | [ ] | Optional (up to 3 pts): implement the fault-4 catch | Not started |
 
@@ -87,7 +87,7 @@ Each criterion has two boxes:
 
 | Impl | Verified | Criterion | Evidence |
 |---|---|---|---|
-| [x] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | `.claude/skills/seed-fault/SKILL.md` (uses `$ARGUMENTS`, `disable-model-invocation: true`). **Created, not yet run.** Verified only once it has produced at least one fault record. (`.claude/skills/run-pipeline/` is still an empty, untracked directory) |
+| [x] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | `.claude/skills/seed-fault/SKILL.md` (uses `$ARGUMENTS`, `disable-model-invocation: true`). **Created and corrected in the second preparation commit; not yet run.** Verified only once it has produced at least one fault record. (`.claude/skills/run-pipeline/` is still an empty, untracked directory) |
 | [x] | [ ] | Starter `new-feature` skill kept | `.claude/skills/new-feature/SKILL.md` |
 | [ ] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | Not started |
 | [ ] | [ ] | `reports/audit.jsonl` from `python agent/audit.py . --out reports/audit.jsonl` | Not started |
@@ -107,7 +107,7 @@ Each criterion has two boxes:
 ## Remaining exercises
 
 - [x] Ex 1: add one feature with `/new-feature`: `cnt_std_7`, kept (`e21af14`, `b03f86b`, `935ecdf`)
-- [ ] Ex 2: four seeded faults, with turn counts for 1-3. Faults 1-3 go through `/seed-fault`; fault 4 (raw-data `cp`) is done by hand, outside the skill
+- [ ] Ex 2: four seeded faults, with repair effort for 1-3 (reported as repair tool calls and repair cycles, not conversational turns; see the `/seed-fault` counting convention). Faults 1-3 go through `/seed-fault`; fault 4 (raw-data `cp`) is done by hand, outside the skill
 - [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo
 - [ ] Ex 4: target transformation so hgb can compete. Validation only; touch test once at the end and say so; the committed `metrics.json` stays untransformed
 - [ ] Ex 5: one paragraph with numbers on whether ridge is worth deploying over persistence
@@ -128,7 +128,7 @@ Each criterion has two boxes:
 | [x] | 1. Unmodified starter, the first commit | `0654988` |
 | [x] | 2. Failing test for the feature | `e21af14` |
 | [x] | 3. Feature that makes the test pass | `b03f86b` (kept and refactored in `935ecdf`) |
-| [ ] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | Not started |
+| [ ] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | Not started. Stays pending until **all four** prescribed experiments are recorded and committed |
 | [ ] | 5. Audit run | Not started |
 | [ ] | 6. Report | Not started |
 
