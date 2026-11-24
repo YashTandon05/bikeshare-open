@@ -537,3 +537,132 @@ $ make test
 19 passed in 1.45s
 exit=0
 ```
+
+## Fault 4: Bash raw-data copy
+
+- Date: 2026-11-24, run by hand outside `/seed-fault`, using Claude's Bash tool
+- Starting commit: `a0d7ab1`. The tree was clean and `make test` printed `19 passed in 1.39s` (exit 0) before the experiment.
+- Evidence directory: `/tmp/fault4-raw-cp-20261124T131120-dL9J`
+- Permission outcome: the `cp` was **not denied**. It ran and printed `cp exit=0`. No settings or permissions were changed for this experiment.
+
+### Preparation (separate Bash call, before any change)
+
+The original was backed up byte for byte with `cp -p data/raw/bike_daily.csv "$T/bike_daily.backup.csv"` (`backup cp exit=0`), then checked:
+
+```
+a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc  data/raw/bike_daily.csv
+a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc  /tmp/fault4-raw-cp-20261124T131120-dL9J/bike_daily.backup.csv
+backup byte-identical
+```
+
+`1.032178` appears exactly once in the file, on line 31 (2011-02-01).
+
+### The experiment (one Bash call)
+
+The `EXIT` trap is installed before the raw file is touched, and the original bytes are also restored explicitly before the call ends. Exact command:
+
+```bash
+cd /home/ytandon/dsc180-methodology/bikeshare-open || exit 1
+T=/tmp/fault4-raw-cp-20261124T131120-dL9J; RAW=data/raw/bike_daily.csv; BK="$T/bike_daily.backup.csv"; ALT="$T/bike_daily.altered.csv"
+exec > >(tee "$T/experiment_log.txt") 2>&1
+echo "== 1. build altered copy in $T (raw file untouched) =="
+sed '31s/,"TUE",1\.032178,/,"TUE",1.042178,/' "$BK" > "$ALT"; echo "sed exit=$?"
+echo "rows: backup=$(wc -l < "$BK") altered=$(wc -l < "$ALT")"
+echo "header identical: $(cmp -s <(head -1 "$BK") <(head -1 "$ALT") && echo yes || echo NO)"
+echo "differing bytes (cmp -l):"; cmp -l "$BK" "$ALT"
+echo "diff backup altered:"; diff "$BK" "$ALT"; echo "diff exit=$?"
+echo "== 2. install restore trap BEFORE touching raw =="
+trap 'cp "$BK" "$RAW"; echo "[EXIT trap] restore cp exit=$?"; sha256sum "$RAW"' EXIT
+trap -p EXIT
+echo "== 3. the fault =="
+echo '$ cp "$ALT" data/raw/bike_daily.csv'
+cp "$ALT" "$RAW"; echo "cp exit=$?"
+echo "original hash: $(sha256sum "$BK" | cut -d' ' -f1)"
+echo "raw hash now : $(sha256sum "$RAW" | cut -d' ' -f1)"
+echo "git diff of raw while altered:"; git --no-pager diff --word-diff=plain -- "$RAW"; git diff --numstat -- "$RAW"
+echo "== 4. make test with altered raw =="
+make test > "$T/make_test_altered.txt" 2>&1; echo "exit=$?" >> "$T/make_test_altered.txt"
+cat "$T/make_test_altered.txt"
+echo "== 5. restore and verify =="
+cp "$BK" "$RAW"; echo "restore cp exit=$?"
+cmp "$BK" "$RAW" && echo "cmp: raw byte-identical to backup"
+echo "raw hash restored: $(sha256sum "$RAW" | cut -d' ' -f1)"
+git diff --quiet -- "$RAW" && echo "git diff: no changes to $RAW"
+make test > "$T/make_test_restored.txt" 2>&1; echo "exit=$?" >> "$T/make_test_restored.txt"
+tail -2 "$T/make_test_restored.txt"
+echo "== end of call; EXIT trap runs next =="
+```
+
+### Output (verbatim, from `experiment_log.txt`)
+
+The data difference is the single byte at offset 3616 (`cmp -l` prints octal: `63` is `'3'`, `64` is `'4'`). That byte changes `temp` on 2011-02-01 from `1.032178` to `1.042178`. Row count (729 lines), header, columns, and dates are unchanged.
+
+```
+== 1. build altered copy in /tmp/fault4-raw-cp-20261124T131120-dL9J (raw file untouched) ==
+sed exit=0
+rows: backup=729 altered=729
+header identical: yes
+differing bytes (cmp -l):
+ 3616  63  64
+diff backup altered:
+31c31
+< 32,"2011-02-01","WINTER","2011","FEB","N","TUE",1.032178,23.97402,82.9565,3.565271,47,1313,1360,"Y","MISTY",31,1096
+---
+> 32,"2011-02-01","WINTER","2011","FEB","N","TUE",1.042178,23.97402,82.9565,3.565271,47,1313,1360,"Y","MISTY",31,1096
+diff exit=1
+== 2. install restore trap BEFORE touching raw ==
+trap -- 'cp "$BK" "$RAW"; echo "[EXIT trap] restore cp exit=$?"; sha256sum "$RAW"' EXIT
+== 3. the fault ==
+$ cp "$ALT" data/raw/bike_daily.csv
+cp exit=0
+original hash: a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc
+raw hash now : cae60e1ce7bc3229d1019db51930e4a88911978264206bb0abe8c187157a92ac
+git diff of raw while altered:
+diff --git a/data/raw/bike_daily.csv b/data/raw/bike_daily.csv
+index cc36935..a4c3de6 100644
+--- a/data/raw/bike_daily.csv
++++ b/data/raw/bike_daily.csv
+@@ -28,7 +28,7 @@
+29,"2011-01-29","WINTER","2011","JAN","N","SAT",1.236534,23.212284,65.1739,9.739455,123,975,1098,"N","GOOD",28,431
+30,"2011-01-30","WINTER","2011","JAN","N","SUN",2.176534,24.510948,72.2174,4.9568342,140,956,1096,"N","GOOD",29,1167
+31,"2011-01-31","WINTER","2011","JAN","N","MON",0.499150999999999,22.3325,60.375,12.541864,42,1459,1501,"Y","MISTY",30,1098
+[-32,"2011-02-01","WINTER","2011","FEB","N","TUE",1.032178,23.97402,82.9565,3.565271,47,1313,1360,"Y","MISTY",31,1096-]{+32,"2011-02-01","WINTER","2011","FEB","N","TUE",1.042178,23.97402,82.9565,3.565271,47,1313,1360,"Y","MISTY",31,1096+}
+33,"2011-02-02","WINTER","2011","FEB","N","WED",4.22,24.650178,77.5417,17.708636,72,1454,1526,"Y","MISTY",32,1501
+34,"2011-02-03","WINTER","2011","FEB","N","THU",0.786979,22.047852,43.7826,18.609384,61,1489,1550,"Y","GOOD",33,1360
+35,"2011-02-04","WINTER","2011","FEB","N","FRI",1.931288,23.771958,58.5217,8.565213,88,1620,1708,"Y","MISTY",34,1526
+1	1	data/raw/bike_daily.csv
+== 4. make test with altered raw ==
+python -m pytest tests/ -q
+...................                                                      [100%]
+19 passed in 1.44s
+exit=0
+== 5. restore and verify ==
+restore cp exit=0
+cmp: raw byte-identical to backup
+raw hash restored: a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc
+git diff: no changes to data/raw/bike_daily.csv
+19 passed in 1.38s
+exit=0
+== end of call; EXIT trap runs next ==
+[EXIT trap] restore cp exit=0
+a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc  data/raw/bike_daily.csv
+```
+
+### Automatic hook feedback
+
+**Did not appear.** Claude Code showed no hook message after this Bash call, and none after the preparation or verification calls either.
+
+### Why the hook was silent, and why the suite stayed green
+
+- **Matcher.** `.claude/settings.json` registers `check_leakage.sh` under `PostToolUse` with `"matcher": "Edit|Write"`. The matcher selects by tool name, so a `Bash` tool call never invokes the hook, whatever the command does. Even when it is invoked, the script exits 0 for any path not matching `*src/*.py`. The permission rules `Write(./data/raw/**)` and `Edit(./data/raw/**)` are also scoped to those two tools, so they do not stop a `cp` run through Bash. What we saw matches this: `cp exit=0`, no denial, no hook output.
+- **Tests.** With the altered file in place, `make test` printed `19 passed` and `exit=0`. The change kept the row count, columns, dates, weather labels, and every `cnt` value, so `load_raw()`'s shape checks, the column classification, the calendar and row-loss checks, and the hand-computed `cnt` windows all still hold. No test looks at the contents of `temp`. A silently corrupted raw file passes the whole suite. A `Stop` hook that only runs `make test` would not have caught this either.
+
+### What would catch it: a checksum check when the data is loaded
+
+Record the expected digest once in `src/config.py`, e.g. `RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"`. Have `load_raw()` hash the file bytes with `hashlib.sha256` before parsing, and raise `ValueError` on a mismatch, naming the expected and actual digests. Every stage reads the data through `load_raw()`: `make data`, `make features`, `make train`, and the `raw`/`feats` fixtures in both test files. So the altered file above (digest `cae60e1c...`) would stop every pipeline stage and turn `make test` red, however the file was changed: `cp`, an editor, or a fresh download. It does not stop the write; it stops the bad bytes from producing a number. It uses only the standard library (`hashlib`), so no new dependency. **This defence is not implemented here. It is scheduled for the next checkpoint.**
+
+Other catches the rubric names: a `PreToolUse` hook on `Bash` that blocks commands writing under `data/raw/`, which only sees commands that name the path; or a filesystem permission (a read-only raw file).
+
+### Restoration
+
+Inside the same call: `restore cp exit=0`, `cmp` byte-identical to the backup, full hash `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc`, no `git diff` for the raw CSV, and `make test` printed `19 passed` with `exit=0`. The `EXIT` trap then ran its own restore and printed the same hash. A separate later Bash call confirmed the same full hash, byte equality with the backup, and `git status --porcelain` empty.
