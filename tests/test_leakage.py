@@ -57,6 +57,23 @@ def test_rolling_mean_excludes_today(feats):
         assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
 
 
+def test_rolling_std_excludes_today(feats):
+    """cnt_std_7 on 2011-02-01 is the population std (ddof=0) of cnt over
+    2011-01-25..2011-01-31 -- the 7 calendar days strictly before it.
+    Expected value is computed from literal counts, not from pandas."""
+    window_counts = [1985, 506, 431, 1167, 1098, 1096, 1501]  # Jan 25..31
+
+    raw = load_raw().set_index("dteday")[TARGET]
+    window = pd.date_range("2011-01-25", "2011-01-31", freq="D")
+    assert [raw[d] for d in window] == window_counts
+
+    mean = sum(window_counts) / len(window_counts)
+    squared_devs = [(x - mean) ** 2 for x in window_counts]
+    expected = (sum(squared_devs) / len(window_counts)) ** 0.5  # ddof=0, ~499.70
+
+    assert feats.set_index("dteday").cnt_std_7[pd.Timestamp("2011-02-01")] == pytest.approx(expected)
+
+
 def test_no_missing_values(feats):
     assert feats[feature_columns(feats)].isna().sum().sum() == 0
 
