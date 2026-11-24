@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, modeling phase closed and audit setup checked (after `05ea1ed`).
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, branch `final-evaluation-report` (from `8450800`): SDK audit recorded, REPORT.md draft.
 
 Each criterion has two boxes:
 
@@ -17,7 +17,7 @@ Each criterion has two boxes:
 | 3 | Verification suite | 25 | Feature, contract, weather-guard, checksum and hardened rolling-mean tests; all 4 faults recorded (fault 4 left the pre-defense suite green) |
 | 4 | Results with baselines | 20 | Modeling closed: ridge + `cnt_std_7` selected on validation; daily-change hgb kept as the Exercise 4 comparison. No report yet; final test interpretation pending |
 | 5 | Structural enforcement | 10 | Hook fired automatically on faults 1-3; did not fire on fault 4 (Bash), as the `Edit\|Write` matcher predicts. Fault-4 catch (checksum in `load_raw()`) implemented and shown in an isolated copy |
-| 6 | Agent configuration | 10 | `/seed-fault` written; all three arguments run (faults 1-3). `agent/audit.py` checked for the hosted setup (`AUDIT_MODEL=opus`), not yet run; teammate audit not started |
+| 6 | Agent configuration | 10 | `/seed-fault` written, all three arguments run. SDK audit of our repo run and committed (`reports/audit.jsonl`). Teammate `/leakage-auditor` audit (`docs/AUDIT.md`) pending |
 | 7 | Decisions and attribution | 10 | Ongoing decision log; no Attribution section |
 
 ## 1. Reproducible repository (15)
@@ -31,7 +31,7 @@ Each criterion has two boxes:
 | [x] | [ ] | `.gitignore` no longer ignores `reports/` but still ignores `data/processed/`, `.venv/`, caches | `.gitignore`, changed in `d85aa8a` |
 | [x] | [ ] | `data/processed/`, `.venv/`, `__pycache__/`, `.pytest_cache/` not committed | `git ls-files` shows none at `935ecdf` |
 | [x] | [ ] | `data/raw/bike_daily.csv` unchanged (sha256 starts `a6bed1577f6e4de5`) | Full hash `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc` confirmed after the fault-4 restore (`b080d81`), and again before and after the isolated checksum demonstration (`docs/SEEDED_FAULTS.md` "Fault 4 defense" > "Canonical file"). `load_raw()` now enforces it as `RAW_SHA256`. Verified waits for a fresh-clone check at submission |
-| [ ] | [ ] | Fresh clone, `pip install -r requirements.txt`, `make all`, then diff with committed metrics and the `REPORT.md` table | Not done |
+| [ ] | [ ] | Fresh clone, `pip install -r requirements.txt`, `make all`, then diff with committed metrics and the `REPORT.md` table | Pending. The SDK auditor's pipeline rerun reproduced `metrics.json` byte for byte, but in the working copy, not a fresh clone |
 
 ## 2. `CLAUDE.md` (10)
 
@@ -72,8 +72,8 @@ Each criterion has two boxes:
 | [x] | [ ] | Metrics from before the feature kept | `reports/metrics_before_feature.json` (`d85aa8a`, never changed) |
 | [x] | [ ] | Feature's validation effect measured without using test scores | Ridge R² 0.6475 to 0.7224, hgb 0.2185 to 0.0977 (`b03f86b`, `docs/DECISIONS.md`) |
 | [x] | [ ] | Validation delta explained, including the negative one | `docs/DECISIONS.md` keep entry (`935ecdf`); hgb's drop reported, cause not yet found |
-| [ ] | [ ] | `REPORT.md` **Results**: one 8-row table (4 models × before/after) with validation and test R² and MAE, matching `reports/metrics.json` exactly | No `REPORT.md` |
-| [ ] | [ ] | `REPORT.md` **Headline finding**: one paragraph with numbers, plus one sentence on the feature and the keep decision | No `REPORT.md` |
+| [ ] | [ ] | `REPORT.md` **Results**: one 8-row table (4 models × before/after) with validation and test R² and MAE, matching `reports/metrics.json` exactly | Draft on `final-evaluation-report`: the 8 rows have validation values from both metrics files; test columns marked PENDING |
+| [ ] | [ ] | `REPORT.md` **Headline finding**: one paragraph with numbers, plus one sentence on the feature and the keep decision | Draft marks it PENDING (needs the final test look) |
 | [ ] | [ ] | No sign the test set was used while iterating (`DECISIONS.md`, commits) | Recorded in `docs/DECISIONS.md` (evaluation history): the default pipeline computes test metrics, and two early lines quote test figures recorded before feature work, but no feature or transformation decision used them. Review again before submission, after the single final test look |
 
 ## 5. Structural enforcement (10)
@@ -91,9 +91,9 @@ Each criterion has two boxes:
 |---|---|---|---|
 | [x] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | `.claude/skills/seed-fault/SKILL.md` (uses `$ARGUMENTS`, `disable-model-invocation: true`). Created in `6fb1c66`, corrected in `040ee64`. **All three arguments run:** `forbidden-column` (`4f3703c`), `rolling-leakage` (`6f69ea5`), `weather-guard` (`a0d7ab1`). On weather-guard the `Edit` included one unchanged context line, but the net diff was exactly the required 2 deletions and 0 additions. **Real uses:** `/seed-fault rolling-leakage` and `/seed-fault weather-guard` ran on the current text and produced "Fault: rolling-leakage" (`6f69ea5`) and "Fault: weather-guard". Earlier, `/seed-fault forbidden-column` produced the "Fault: forbidden-column" record in `docs/SEEDED_FAULTS.md` (`4f3703c`). The table heading that `$ARGUMENTS` was substituting into was fixed afterwards (text only). Verified stays unticked for review: on weather-guard the agent added a context line to the `Edit` strings, so the table's literal strings for that row were not used as-is (net diff still matched; see that record). (`.claude/skills/run-pipeline/` is still an empty, untracked directory) |
 | [x] | [ ] | Starter `new-feature` skill kept | `.claude/skills/new-feature/SKILL.md` |
-| [ ] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | Not started |
-| [ ] | [ ] | `reports/audit.jsonl` from `python agent/audit.py . --out reports/audit.jsonl` | Not run. Invocation checked: `env AUDIT_MODEL=opus python agent/audit.py . --out reports/audit.jsonl` from a separate terminal (SDK 0.2.172 supports every option used; no local endpoint overrides; see `docs/DECISIONS.md`, audit setup). `reports/audit.jsonl` is not gitignored |
-| [ ] | [ ] | If the auditor flags our repo: fix it, or argue back in `REPORT.md` | Pending the audit |
+| [ ] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | Pending: peer branch audit not started |
+| [x] | [ ] | `reports/audit.jsonl` from `python agent/audit.py . --out reports/audit.jsonl` | Committed exactly as generated (sha256 `7154daa1...`), from `env AUDIT_MODEL=opus python agent/audit.py . --out reports/audit.jsonl` on `8450800`, 2026-11-24 13:43:54 -0800 (`docs/DECISIONS.md`, SDK audit run). Has every schema field; `findings` has 2 entries |
+| [x] | [ ] | If the auditor flags our repo: fix it, or argue back in `REPORT.md` | Leakage `none`. Both findings answered in the `REPORT.md` draft (Attribution > "SDK audit of our repo"): observed weather accepted as a substantive limit and stated; README test count fixed (cosmetic) |
 
 ## 7. Decisions and attribution (10)
 
@@ -117,11 +117,11 @@ Each criterion has two boxes:
 
 ## Required `REPORT.md` structure (2-4 pages)
 
-- [ ] **Results**: 8-row table, validation and test R² and MAE, before and after the feature
-- [ ] **Headline finding**: one paragraph with numbers, plus the feature sentence
-- [ ] **Exercise 4: target transformation**. Validation evidence ready (`reports/target_transform_validation.json`); section not written
-- [ ] **Exercise 5: ridge vs persistence**
-- [ ] **Attribution**: model line, agent-generated list, our-decisions list
+- [ ] **Results**: draft, validation filled, test PENDING
+- [ ] **Headline finding**: PENDING in draft
+- [ ] **Exercise 4: target transformation**: drafted from `reports/target_transform_validation.json`; test result PENDING
+- [ ] **Exercise 5: ridge vs persistence**: PENDING in draft
+- [ ] **Attribution**: drafted (model line, agent-generated list, decisions list, SDK audit assessment). TODO: DECISIONS lines for "what to predict" and "is it believable"
 
 ## Commit history (squashing all of it scores 0 on item 7)
 
