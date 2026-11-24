@@ -19,7 +19,7 @@ from Bash) is run by hand, outside this skill.
 Each fault is one `Edit` to `src/features.py` that still parses. Use
 `old_string`/`new_string` exactly as given.
 
-| `$ARGUMENTS` | old_string | new_string | Required diff | Test expected to go red |
+| Fault name | old_string | new_string | Required diff | Test expected to go red |
 |---|---|---|---|---|
 | `forbidden-column` | `return [c for c in numeric if c not in FORBIDDEN]` | `return [c for c in numeric if c not in FORBIDDEN or c == "casual"]` | 1 line changed (1 `-`, 1 `+`) | `test_no_forbidden_features` |
 | `rolling-leakage` | `out["cnt_roll_7"] = out[TARGET].shift(1).rolling(WEEK_DAYS).mean()` | `out["cnt_roll_7"] = out[TARGET].rolling(WEEK_DAYS).mean()` | 1 line changed (1 `-`, 1 `+`) | `test_rolling_mean_excludes_today` |
