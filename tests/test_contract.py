@@ -16,7 +16,7 @@ from src.config import (
 )
 from src.features import build_features, feature_columns, reindex_to_calendar
 from src.ingest import load_raw
-from src.train import MODELS, temporal_split
+from src.train import MODELS, reconstruct_from_change, temporal_split
 
 
 @pytest.fixture(scope="module")
@@ -125,3 +125,17 @@ def test_persistence_baseline_is_reported():
     """The baseline that matters for a lag-driven model is 'yesterday again'.
     It must be in the comparison, whatever its score."""
     assert "baseline_persistence" in MODELS
+
+
+def test_change_reconstruction_never_sees_todays_target():
+    """Exercise 4: level = yesterday's count + predicted change, built from
+    the feature frame alone. The frame has no `cnt` column, so today's true
+    count cannot be read."""
+
+    class StubChangeModel:
+        def predict(self, X):
+            assert TARGET not in X.columns
+            return [200.0, -100.0]
+
+    X = pd.DataFrame({"cnt_lag_1": [6000.0, 5000.0], "temp": [10.0, 12.0]})
+    assert list(reconstruct_from_change(StubChangeModel(), X)) == [6200.0, 4900.0]

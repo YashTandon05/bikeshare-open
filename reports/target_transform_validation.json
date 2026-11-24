@@ -1,0 +1,50 @@
+{
+  "experiment": "hgb trained on cnt - cnt_lag_1; prediction = cnt_lag_1 + predicted change",
+  "split": "validation only; test rows never fitted, predicted or scored",
+  "n_features": 15,
+  "features": [
+    "temp",
+    "atemp",
+    "hum",
+    "windspeed",
+    "dayofweek",
+    "is_weekend",
+    "is_holiday",
+    "is_workday",
+    "month_sin",
+    "month_cos",
+    "weather_severity",
+    "cnt_lag_1",
+    "cnt_lag_7",
+    "cnt_roll_7",
+    "cnt_std_7"
+  ],
+  "n_train": 348,
+  "n_valid": 182,
+  "valid_dates": [
+    "2012-01-01",
+    "2012-06-30"
+  ],
+  "valid": {
+    "baseline_mean": {
+      "r2": -0.9318,
+      "mae": 2002.2
+    },
+    "baseline_persistence": {
+      "r2": 0.4507,
+      "mae": 900.6
+    },
+    "ridge": {
+      "r2": 0.7224,
+      "mae": 700.4
+    },
+    "hgb": {
+      "r2": 0.0977,
+      "mae": 1381.6
+    },
+    "hgb_daily_change": {
+      "r2": 0.5642,
+      "mae": 885.8
+    }
+  }
+}

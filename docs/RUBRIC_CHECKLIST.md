@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, post-hardening `rolling-leakage` recheck run from `7d64596`.
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, Exercise 4 validation experiment (after `eae3d3e`).
 
 Each criterion has two boxes:
 
@@ -25,7 +25,7 @@ Each criterion has two boxes:
 | Impl | Verified | Criterion | Evidence |
 |---|---|---|---|
 | [x] | [ ] | `make all` runs data, features, then train | `Makefile` target `all: data features train` |
-| [ ] | [ ] | `reports/metrics.json` comes from `make all` on the **final** code | Current file comes from `make train` at `b03f86b`. `935ecdf` changed `src/` (a refactor that keeps behavior) and was not retrained. Rerun at the end. |
+| [ ] | [ ] | `reports/metrics.json` comes from `make all` on the **final** code | At the Exercise 4 checkpoint, default `make train` on the current code reproduced the committed file byte for byte (sha256 `4df4eb95...`). The code is not final yet, so rerun `make all` at the end |
 | [x] | [ ] | Seeds fixed | `src/train.py:52` `HistGradientBoostingRegressor(random_state=0)`; ridge is deterministic |
 | [x] | [ ] | Dependencies pinned, including any added ones | `requirements.txt` (nothing added so far) |
 | [x] | [ ] | `.gitignore` no longer ignores `reports/` but still ignores `data/processed/`, `.venv/`, caches | `.gitignore`, changed in `d85aa8a` |
@@ -56,7 +56,7 @@ Each criterion has two boxes:
 | [x] | [ ] | Feature test checks a value on a named date against a hand-computed value from strictly earlier dates | 2011-02-01, expected 499.70 from the counts for Jan 25-31 |
 | [x] | [ ] | Unclassified-column test in `tests/test_contract.py` | `test_raw_columns_are_all_classified`, with the hand-typed `CLASSIFIED_RAW_COLS` in `src/config.py` (`935ecdf`) |
 | [x] | [ ] | Unknown-column rejection shown | `docs/SEEDED_FAULTS.md` "Unclassified raw column rejected": `AssertionError: unclassified raw columns: ['surge_index']` |
-| [x] | [ ] | `make test` passes | `21 passed in 1.16s`, `exit=0` at the checksum-defense checkpoint (`docs/SEEDED_FAULTS.md` "Fault 4 defense" > "Unit tests") |
+| [x] | [ ] | `make test` passes | `22 passed in 1.71s` at the Exercise 4 checkpoint (adds `test_change_reconstruction_never_sees_todays_target`); `21 passed` at the checksum-defense checkpoint |
 | [x] | [ ] | Raw-data checksum tests (temporary files; canonical CSV untouched) | `tests/test_contract.py::test_load_raw_accepts_trusted_bytes` PASSED, `::test_load_raw_rejects_fault4_alteration` PASSED (`docs/SEEDED_FAULTS.md` "Fault 4 defense" > "Unit tests") |
 | [x] | [ ] | `test_rolling_mean_excludes_today` cannot pass vacuously | The conditional skip is now an assertion that the reference window is complete (`tests/test_leakage.py`). PASSED in the same run. Post-hardening recheck done: `docs/SEEDED_FAULTS.md` "Fault: rolling-leakage (post-hardening recheck)". The window assertion passed, then the comparison failed (`4389.0` vs `4414.857142857143`), giving `1 failed, 20 passed`, `exit=2`. Automatic hook feedback appeared; manual diagnostic `exit=2`; 2 repair tool calls / 1 cycle. The original `6f69ea5` record is unchanged |
 | [x] | [ ] | Fault 1 (forbidden column in `feature_columns`): real red output pasted | `4f3703c`, `docs/SEEDED_FAULTS.md` "Fault: forbidden-column" > "Red test output": `FAILED tests/test_leakage.py::test_no_forbidden_features`, `1 failed, 18 passed`, `exit=2` |
@@ -111,7 +111,7 @@ Each criterion has two boxes:
 - [x] Ex 1: add one feature with `/new-feature`: `cnt_std_7`, kept (`e21af14`, `b03f86b`, `935ecdf`)
 - [x] Ex 2: four seeded faults. Done: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1` (each 2 repair tool calls / 1 repair cycle, which are lower bounds, not conversational turns); fault 4, the manual Bash raw-data copy, recorded with what would catch it
 - [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo
-- [ ] Ex 4: target transformation so hgb can compete. Validation only; touch test once at the end and say so; the committed `metrics.json` stays untransformed
+- [ ] Ex 4: target transformation so hgb can compete. **Validation part done:** `python -m src.train --validation-target-experiment` -> `reports/target_transform_validation.json`. hgb predicting the daily change: valid R^2 0.5642 / MAE 885.8, vs ordinary hgb 0.0977 / 1381.6, persistence 0.4507 / 900.6, ridge 0.7224 / 700.4 (`docs/DECISIONS.md`, Exercise 4 result). **Pending:** the single end-of-project test-set touch (to be reported as such), and the REPORT.md section on whether it is defensible. Committed `metrics.json` stays untransformed (checked byte for byte)
 - [ ] Ex 5: one paragraph with numbers on whether ridge is worth deploying over persistence
 - [ ] Ex 6 (optional): second model size or hosted model, as a subsection under Attribution
 
@@ -119,7 +119,7 @@ Each criterion has two boxes:
 
 - [ ] **Results**: 8-row table, validation and test R² and MAE, before and after the feature
 - [ ] **Headline finding**: one paragraph with numbers, plus the feature sentence
-- [ ] **Exercise 4: target transformation**
+- [ ] **Exercise 4: target transformation**. Validation evidence ready (`reports/target_transform_validation.json`); section not written
 - [ ] **Exercise 5: ridge vs persistence**
 - [ ] **Attribution**: model line, agent-generated list, our-decisions list
 

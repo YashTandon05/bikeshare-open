@@ -9,6 +9,8 @@ RAW = ROOT / "data" / "raw" / "bike_daily.csv"
 RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"
 PROCESSED = ROOT / "data" / "processed" / "features.parquet"
 METRICS = ROOT / "reports" / "metrics.json"
+# Exercise 4: validation-only target-transformation experiment (never test).
+TARGET_TRANSFORM_VALIDATION = ROOT / "reports" / "target_transform_validation.json"
 
 # Daily Capital Bikeshare counts (Fanaee-T & Gama). Canonical home:
 #   https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset
