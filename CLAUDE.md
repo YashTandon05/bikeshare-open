@@ -9,6 +9,8 @@ rides) from calendar, weather, and lagged-demand features.
 - `make train` - fit models, write `reports/metrics.json`
 - `make test` - pytest; run this before claiming anything works
 - `make all` - the three pipeline stages in order
+- After each checkpoint, update `docs/RUBRIC_CHECKLIST.md`; tick a box only
+  with a cited file, commit, or recorded output
 
 ## Non-negotiable rules
 - **Never** put `casual` or `registered` in a feature set:
