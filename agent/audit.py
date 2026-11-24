@@ -141,6 +141,16 @@ REPORT_SCHEMA = {
 }
 
 
+def _repo_label(repo: Path) -> str:
+    # Path(".").name is empty; resolve so the label is the directory.
+    return repo.resolve().name
+
+
+def _with_repo(repo: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    # Label last, so a model-supplied "repo" cannot overwrite it.
+    return {**payload, "repo": _repo_label(repo)}
+
+
 async def audit_repo(repo: Path) -> dict[str, Any]:
     options = ClaudeAgentOptions(
         system_prompt=SYSTEM,
@@ -171,17 +181,18 @@ async def audit_repo(repo: Path) -> dict[str, Any]:
             final = message
 
     if final is None or final.is_error:
-        return {"repo": repo.name, "error": "run_failed",
-                "raw": (final.result or "")[:500] if final else ""}
+        raw = (final.result or "")[:500] if final else ""
+        return _with_repo(repo, {"error": "run_failed", "raw": raw})
     if final.structured_output is not None:
-        return {"repo": repo.name, **final.structured_output}
+        return _with_repo(repo, final.structured_output)
     try:
         # Belt and braces: small open-weight models do not always honour
         # the schema; fall back to parsing the final text.
-        return {"repo": repo.name, **json.loads((final.result or "").strip())}
+        return _with_repo(repo, json.loads((final.result or "").strip()))
     except json.JSONDecodeError:
         # Never let one malformed reply kill a 40-repo run.
-        return {"repo": repo.name, "error": "unparseable", "raw": (final.result or "")[:500]}
+        raw = (final.result or "")[:500]
+        return _with_repo(repo, {"error": "unparseable", "raw": raw})
 
 
 async def audit_many(repos: list[Path], concurrency: int) -> list[dict[str, Any]]:
@@ -192,10 +203,11 @@ async def audit_many(repos: list[Path], concurrency: int) -> list[dict[str, Any]
             try:
                 return await audit_repo(repo)
             except Exception as exc:
-                # One raised SDK run must not drop the other repos.
+                # Exception only. Cancellation and KeyboardInterrupt still stop the batch.
                 detail = f"{type(exc).__name__}: {exc}"[:500]
-                print(f"audit exception {repo.name}: {detail}", file=sys.stderr)
-                return {"repo": repo.name, "error": "exception", "raw": detail}
+                record = _with_repo(repo, {"error": "exception", "raw": detail})
+                print(f"audit exception {record['repo']}: {detail}", file=sys.stderr)
+                return record
 
     return list(await asyncio.gather(*(bounded(r) for r in repos)))
 
