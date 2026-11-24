@@ -74,6 +74,8 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     out["cnt_lag_1"] = out[TARGET].shift(1)
     out["cnt_lag_7"] = out[TARGET].shift(LAG_WARMUP)
     out["cnt_roll_7"] = out[TARGET].shift(1).rolling(LAG_WARMUP).mean()
+    # Population std (ddof=0); pandas defaults to the sample std (ddof=1).
+    out["cnt_std_7"] = out[TARGET].shift(1).rolling(7).std(ddof=0)
 
     return out.dropna().reset_index(drop=True)
 
