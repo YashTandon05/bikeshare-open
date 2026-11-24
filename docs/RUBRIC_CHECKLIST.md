@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, branch `final-evaluation-report` (from `8450800`): SDK audit recorded, REPORT.md draft.
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, final evaluation and complete REPORT.md draft on branch `final-evaluation-report` (unmerged).
 
 Each criterion has two boxes:
 
@@ -15,7 +15,7 @@ Each criterion has two boxes:
 | 1 | Reproducible repository | 15 | Partly done |
 | 2 | `CLAUDE.md` | 10 | Partly done |
 | 3 | Verification suite | 25 | Feature, contract, weather-guard, checksum and hardened rolling-mean tests; all 4 faults recorded (fault 4 left the pre-defense suite green) |
-| 4 | Results with baselines | 20 | Modeling closed: ridge + `cnt_std_7` selected on validation; daily-change hgb kept as the Exercise 4 comparison. No report yet; final test interpretation pending |
+| 4 | Results with baselines | 20 | Final evaluation run once (`9315d78`); REPORT.md complete draft with all 8 rows, headline, Exercises 4-5. Conclusions await team sign-off |
 | 5 | Structural enforcement | 10 | Hook fired automatically on faults 1-3; did not fire on fault 4 (Bash), as the `Edit\|Write` matcher predicts. Fault-4 catch (checksum in `load_raw()`) implemented and shown in an isolated copy |
 | 6 | Agent configuration | 10 | `/seed-fault` written, all three arguments run. SDK audit of our repo run and committed (`reports/audit.jsonl`). Teammate `/leakage-auditor` audit (`docs/AUDIT.md`) pending |
 | 7 | Decisions and attribution | 10 | Ongoing decision log; no Attribution section |
@@ -25,7 +25,7 @@ Each criterion has two boxes:
 | Impl | Verified | Criterion | Evidence |
 |---|---|---|---|
 | [x] | [ ] | `make all` runs data, features, then train | `Makefile` target `all: data features train` |
-| [ ] | [ ] | `reports/metrics.json` comes from `make all` on the **final** code | At the Exercise 4 checkpoint, default `make train` on the current code reproduced the committed file byte for byte (sha256 `4df4eb95...`). The code is not final yet, so rerun `make all` at the end |
+| [x] | [ ] | `reports/metrics.json` comes from `make all` on the **final** code | `make all` at `9315d78` (final evaluation) reproduced the committed file byte for byte, sha256 `4df4eb95...` (`docs/DECISIONS.md`, final evaluation run). Verified waits for the fresh-clone run |
 | [x] | [ ] | Seeds fixed | `src/train.py:52` `HistGradientBoostingRegressor(random_state=0)`; ridge is deterministic |
 | [x] | [ ] | Dependencies pinned, including any added ones | `requirements.txt` (nothing added so far) |
 | [x] | [ ] | `.gitignore` no longer ignores `reports/` but still ignores `data/processed/`, `.venv/`, caches | `.gitignore`, changed in `d85aa8a` |
@@ -72,9 +72,9 @@ Each criterion has two boxes:
 | [x] | [ ] | Metrics from before the feature kept | `reports/metrics_before_feature.json` (`d85aa8a`, never changed) |
 | [x] | [ ] | Feature's validation effect measured without using test scores | Ridge R² 0.6475 to 0.7224, hgb 0.2185 to 0.0977 (`b03f86b`, `docs/DECISIONS.md`) |
 | [x] | [ ] | Validation delta explained, including the negative one | `docs/DECISIONS.md` keep entry (`935ecdf`); hgb's drop reported, cause not yet found |
-| [ ] | [ ] | `REPORT.md` **Results**: one 8-row table (4 models × before/after) with validation and test R² and MAE, matching `reports/metrics.json` exactly | Draft on `final-evaluation-report`: the 8 rows have validation values from both metrics files; test columns marked PENDING |
-| [ ] | [ ] | `REPORT.md` **Headline finding**: one paragraph with numbers, plus one sentence on the feature and the keep decision | Draft marks it PENDING (needs the final test look) |
-| [ ] | [ ] | No sign the test set was used while iterating (`DECISIONS.md`, commits) | Recorded in `docs/DECISIONS.md` (evaluation history): the default pipeline computes test metrics, and two early lines quote test figures recorded before feature work, but no feature or transformation decision used them. Review again before submission, after the single final test look |
+| [x] | [ ] | `REPORT.md` **Results**: one 8-row table (4 models × before/after) with validation and test R² and MAE, matching `reports/metrics.json` exactly | Filled from `reports/metrics_before_feature.json` and `reports/metrics.json` by script. Re-check against the fresh-clone metrics |
+| [x] | [ ] | `REPORT.md` **Headline finding**: one paragraph with numbers, plus one sentence on the feature and the keep decision | Drafted: both baselines, ridge, hgb, `cnt_std_7` effect and keep decision, observed-weather qualification. Proposed; awaits team sign-off |
+| [x] | [ ] | No sign the test set was used while iterating (`DECISIONS.md`, commits) | Evaluation-history and final-evaluation lines in `docs/DECISIONS.md`. The final look was planned before running, its code committed first (`9315d78`), and run once; no selection followed |
 
 ## 5. Structural enforcement (10)
 
@@ -101,27 +101,27 @@ Each criterion has two boxes:
 |---|---|---|---|
 | [x] | [ ] | `DECISIONS.md` keeps the 5 starter lines; new lines dated, newest last | `git diff 0654988 -- docs/DECISIONS.md` only adds lines |
 | [x] | [ ] | One line per decision so far: agent backend, model correction, feature, keep, column classification, tracker | `docs/DECISIONS.md` |
-| [ ] | [ ] | `REPORT.md` **Attribution**: first line names the model and size and whether we switched (Sonnet 5.5 planned, Opus 5.5 used, see `b033c19`) | No `REPORT.md` |
-| [ ] | [ ] | Attribution list: files and functions the agent generated | No `REPORT.md` |
-| [ ] | [ ] | Attribution list: our decisions, each traced to a `DECISIONS.md` line | No `REPORT.md` |
+| [x] | [ ] | `REPORT.md` **Attribution**: first line names the model and size and whether we switched (Sonnet 5.5 planned, Opus 5.5 used, see `b033c19`) | Drafted |
+| [x] | [ ] | Attribution list: files and functions the agent generated | Drafted in `REPORT.md` |
+| [x] | [ ] | Attribution list: our decisions, each traced to a `DECISIONS.md` line | Drafted; the target and believability lines are now in `docs/DECISIONS.md` |
 | [ ] | [ ] | Every decision has a commit and every commit has a decision | Check at the end |
 
 ## Remaining exercises
 
 - [x] Ex 1: add one feature with `/new-feature`: `cnt_std_7`, kept (`e21af14`, `b03f86b`, `935ecdf`)
 - [x] Ex 2: four seeded faults. Done: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1` (each 2 repair tool calls / 1 repair cycle, which are lower bounds, not conversational turns); fault 4, the manual Bash raw-data copy, recorded with what would catch it
-- [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo
-- [ ] Ex 4: target transformation so hgb can compete. **Validation part done:** `python -m src.train --validation-target-experiment` -> `reports/target_transform_validation.json`. hgb predicting the daily change: valid R^2 0.5642 / MAE 885.8, vs ordinary hgb 0.0977 / 1381.6, persistence 0.4507 / 900.6, ridge 0.7224 / 700.4. **Interpretation recorded** (`docs/DECISIONS.md`, "refines the Exercise 4 result line"): improves hgb but does not establish the cause of its original weakness; small MAE gain over persistence with no uncertainty estimate; assumes yesterday's count and same-day observed weather are known. **Pending:** the single end-of-project test look (reported as such) and the REPORT.md section. Committed `metrics.json` stays untransformed
-- [ ] Ex 5: one paragraph with numbers on whether ridge is worth deploying over persistence
+- [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo. **Our-repo SDK audit done** (`601400b`, `reports/audit.jsonl`). **Peer `/leakage-auditor` audit of a teammate's branch pending**
+- [x] Ex 4: target transformation. Validation (`reports/target_transform_validation.json`) and a single final test look (`reports/target_transform_final_test.json`, `--final-target-test` at `9315d78`): hgb_daily_change test R² 0.4761 / MAE 990.5, vs persistence 0.5099 / 840.1 and ridge 0.6356 / 840.3. Defensibility argued in `REPORT.md`. Committed `metrics.json` untransformed
+- [x] Ex 5: ridge vs persistence argued with numbers in `REPORT.md` (proposed: not yet worth deploying over persistence; test MAE 840.3 vs 840.1). Awaits team sign-off
 - [ ] Ex 6 (optional): second model size or hosted model, as a subsection under Attribution
 
 ## Required `REPORT.md` structure (2-4 pages)
 
-- [ ] **Results**: draft, validation filled, test PENDING
-- [ ] **Headline finding**: PENDING in draft
-- [ ] **Exercise 4: target transformation**: drafted from `reports/target_transform_validation.json`; test result PENDING
-- [ ] **Exercise 5: ridge vs persistence**: PENDING in draft
-- [ ] **Attribution**: drafted (model line, agent-generated list, decisions list, SDK audit assessment). TODO: DECISIONS lines for "what to predict" and "is it believable"
+- [x] **Results**: 8 rows, valid and test filled
+- [x] **Headline finding**: drafted, proposed
+- [x] **Exercise 4: target transformation**: validation and final test, defensibility
+- [x] **Exercise 5: ridge vs persistence**: drafted, proposed
+- [x] **Attribution**: model line, contributors and tools, agent-generated list, decisions list, SDK audit assessment
 
 ## Commit history (squashing all of it scores 0 on item 7)
 
@@ -131,8 +131,8 @@ Each criterion has two boxes:
 | [x] | 2. Failing test for the feature | `e21af14` |
 | [x] | 3. Feature that makes the test pass | `b03f86b` (kept and refactored in `935ecdf`) |
 | [x] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | 4 of 4 distinct faults committed: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1`, Bash raw-data copy `b080d81`. Later rechecks (the post-hardening `rolling-leakage` recheck is recorded under its own heading) do not change the count of 4 |
-| [ ] | 5. Audit run | Not started |
-| [ ] | 6. Report | Not started |
+| [ ] | 5. Audit run | SDK audit committed in `601400b` (branch `final-evaluation-report`). Peer audit (`docs/AUDIT.md`) commit pending |
+| [ ] | 6. Report | Draft `6dd265e`; complete draft in the final-evaluation commit on `final-evaluation-report`. Tick once it is merged and the conclusions are signed off |
 
 Setup commits `d85aa8a` and `b033c19` come between 1 and 2; each has a `DECISIONS.md` line.
 
