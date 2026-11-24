@@ -83,3 +83,43 @@ FAILED tests/test_leakage.py::test_rolling_std_excludes_today - AttributeErro...
 1 failed, 14 passed in 1.51s
 make: *** [Makefile:16: test] Error 1
 ```
+
+## Unclassified raw column rejected
+
+Guard: `assert_all_columns_classified` in `tests/test_contract.py`, used by
+`test_raw_columns_are_all_classified`. Allowed columns: `CLASSIFIED_RAW_COLS` in
+`src/config.py`, typed out by hand and never taken from the CSV header, dtypes,
+or `feature_columns()`.
+
+Seeded fault: add a numeric column `surge_index` to an in-memory copy of the raw
+DataFrame. `data/raw/bike_daily.csv` is not modified (sha256 a6bed157... before
+and after). Without the guard, `feature_columns()` passes the new column to the
+model, as the first output line shows.
+
+Command (from the repo root):
+
+```
+$ python - <<EOF
+from src.features import build_features, feature_columns
+from src.ingest import load_raw
+from tests.test_contract import assert_all_columns_classified
+
+raw = load_raw()
+tampered = raw.copy()            # in memory; data/raw/bike_daily.csv untouched
+tampered["surge_index"] = 1.0    # unexpected numeric column
+print("feature_columns would include it:",
+      "surge_index" in feature_columns(build_features(tampered)))
+assert_all_columns_classified(raw)
+print("real raw data: all", len(raw.columns), "columns classified")
+assert_all_columns_classified(tampered)
+EOF
+feature_columns would include it: True
+real raw data: all 18 columns classified
+Traceback (most recent call last):
+  File "<stdin>", line 12, in <module>
+  File "/home/ytandon/dsc180-methodology/bikeshare-open/tests/test_contract.py", line 37, in assert_all_columns_classified
+    assert not unclassified, (
+           ^^^^^^^^^^^^^^^^
+AssertionError: unclassified raw columns: ['surge_index']; give each a role in src/config.py (DATE_COL, PREDICTOR_INPUT_COLS, or FORBIDDEN)
+exit=1
+```

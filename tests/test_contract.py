@@ -3,7 +3,14 @@ import pandas as pd
 import pytest
 from sklearn.metrics import r2_score
 
-from src.config import LAG_WARMUP, TARGET
+from src.config import (
+    CLASSIFIED_RAW_COLS,
+    DATE_COL,
+    FORBIDDEN,
+    LAG_WARMUP,
+    PREDICTOR_INPUT_COLS,
+    TARGET,
+)
 from src.features import build_features, feature_columns, reindex_to_calendar
 from src.ingest import load_raw
 from src.train import MODELS, temporal_split
@@ -17,6 +24,39 @@ def raw():
 @pytest.fixture(scope="module")
 def feats(raw):
     return build_features(raw)
+
+
+def assert_all_columns_classified(df: pd.DataFrame) -> None:
+    """The guard: every raw column must have a role in src/config.py.
+
+    The allow-list is CLASSIFIED_RAW_COLS, hand-typed in config. It is never
+    derived from the header, dtypes, or feature_columns() -- any of those
+    would approve exactly the new column this exists to catch.
+    """
+    unclassified = set(df.columns) - CLASSIFIED_RAW_COLS
+    assert not unclassified, (
+        f"unclassified raw columns: {sorted(unclassified)}; give each a role "
+        "in src/config.py (DATE_COL, PREDICTOR_INPUT_COLS, or FORBIDDEN)"
+    )
+
+
+def test_raw_columns_are_all_classified(raw):
+    assert_all_columns_classified(raw)
+
+
+def test_column_roles_do_not_overlap():
+    """A column cannot be both an approved input and excluded."""
+    assert not (PREDICTOR_INPUT_COLS & FORBIDDEN)
+    assert DATE_COL not in PREDICTOR_INPUT_COLS | FORBIDDEN
+
+
+def test_guard_rejects_unclassified_numeric_column(raw):
+    """A new numeric column is the dangerous case: feature_columns() would
+    pass it to the model. The guard must reject it before that happens."""
+    tampered = raw.copy()
+    tampered["surge_index"] = 1.0
+    with pytest.raises(AssertionError, match="surge_index"):
+        assert_all_columns_classified(tampered)
 
 
 def test_calendar_is_complete_before_lagging(raw):
