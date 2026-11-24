@@ -411,3 +411,129 @@ $ make test
 19 passed in 1.25s
 exit=0
 ```
+
+## Fault: weather-guard
+
+- Date: 2026-11-24, run with `/seed-fault weather-guard`
+- Starting commit: `6f69ea5` (clean tree; pre-check `make test`: 19 passed in 1.37s, exit=0)
+- Evidence directory: `/tmp/seed-fault-weather-guard-20261124T130651-9mzx`
+- Raw CSV sha256 before: `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc`; after repair: `sha256sum -c` printed `data/raw/bike_daily.csv: OK`
+
+### Change
+
+One `Edit` to `src/features.py` deleted the `if unknown:` / `raise ValueError(...)` guard in `encode_weather`. Without it, an unmapped label silently becomes NaN. Deviation from the skill: the `Edit` also included the unchanged line `unknown = set(known.unique()) - set(WEATHER_ORDER)` as context in both `old_string` and `new_string`, so the strings were not literally the table's. The numstat below shows the net change is exactly the required 2 deletions and 0 additions. The repair `Edit` used the same context line.
+
+```diff
+diff --git a/src/features.py b/src/features.py
+index 3a3c96e..debee3e 100644
+--- a/src/features.py
++++ b/src/features.py
+@@ -26,8 +26,6 @@ def encode_weather(series: pd.Series) -> pd.Series:
+     """
+     known = series.dropna()
+     unknown = set(known.unique()) - set(WEATHER_ORDER)
+-    if unknown:
+-        raise ValueError(f"unmapped weather labels: {sorted(unknown)}")
+     return series.map(WEATHER_ORDER).astype(float)
+ 
+ 
+```
+
+`git diff --numstat -- src/`:
+
+```
+0	2	src/features.py
+```
+
+### Automatic hook feedback (PostToolUse)
+
+Shown by Claude Code right after the seeding `Edit`. Copied verbatim. Exit code: 2, inferred from the blocking-error report (Claude Code does not display it).
+
+```
+PostToolUse:Edit hook blocking error from command: "${CLAUDE_PROJECT_DIR}/.claude/hooks/check_leakage.sh": [${CLAUDE_PROJECT_DIR}/.claude/hooks/check_leakage.sh]: Leakage tests failed after editing /home/ytandon/dsc180-methodology/bikeshare-open/src/features.py:
+......F..                                                                                                                                                        [100%]
+=============================================================================== FAILURES ===============================================================================
+________________________________________________________________ test_unknown_weather_label_is_rejected ________________________________________________________________
+
+    def test_unknown_weather_label_is_rejected():
+        """An unmapped label must raise, not become a NaN that dropna() deletes.
+        The raw data only has known labels, so without this test nothing would
+        notice if the guard in encode_weather were removed."""
+        labels = pd.Series(["GOOD", "UNSEEN", "BAD"])
+>       with pytest.raises(ValueError, match=r"unmapped weather labels: \['UNSEEN'\]"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_leakage.py:82: Failed
+======================================================================= short test summary info ========================================================================
+FAILED tests/test_leakage.py::test_unknown_weather_label_is_rejected - Failed: DID NOT RAISE ValueError
+1 failed, 8 passed in 0.50s
+```
+
+### Manual hook diagnostic (run by hand, not the automatic trigger)
+
+Run while the fault was in place by piping a synthetic payload into the hook script. Exit code measured: `exit=` is the last line.
+
+```
+$ printf '{"tool_input":{"file_path":"%s"}}' "$PWD/src/features.py" \
+    | CLAUDE_PROJECT_DIR="$PWD" .claude/hooks/check_leakage.sh; echo "exit=$?"
+Leakage tests failed after editing /home/ytandon/dsc180-methodology/bikeshare-open/src/features.py:
+......F..                                                                [100%]
+=================================== FAILURES ===================================
+____________________ test_unknown_weather_label_is_rejected ____________________
+
+    def test_unknown_weather_label_is_rejected():
+        """An unmapped label must raise, not become a NaN that dropna() deletes.
+        The raw data only has known labels, so without this test nothing would
+        notice if the guard in encode_weather were removed."""
+        labels = pd.Series(["GOOD", "UNSEEN", "BAD"])
+>       with pytest.raises(ValueError, match=r"unmapped weather labels: \['UNSEEN'\]"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_leakage.py:82: Failed
+=========================== short test summary info ============================
+FAILED tests/test_leakage.py::test_unknown_weather_label_is_rejected - Failed...
+1 failed, 8 passed in 0.44s
+exit=2
+```
+
+### Red test output
+
+As predicted, only `test_unknown_weather_label_is_rejected` went red (`DID NOT RAISE ValueError`). `make` exits 2 when a recipe fails. This test was added in `6fb1c66` for exactly this fault: the raw data has only known labels, so every other test passes with the guard removed.
+
+```
+$ make test
+python -m pytest tests/ -q
+.............F.....                                                      [100%]
+=================================== FAILURES ===================================
+____________________ test_unknown_weather_label_is_rejected ____________________
+
+    def test_unknown_weather_label_is_rejected():
+        """An unmapped label must raise, not become a NaN that dropna() deletes.
+        The raw data only has known labels, so without this test nothing would
+        notice if the guard in encode_weather were removed."""
+        labels = pd.Series(["GOOD", "UNSEEN", "BAD"])
+>       with pytest.raises(ValueError, match=r"unmapped weather labels: \['UNSEEN'\]"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_leakage.py:82: Failed
+=========================== short test summary info ============================
+FAILED tests/test_leakage.py::test_unknown_weather_label_is_rejected - Failed...
+1 failed, 18 passed in 1.47s
+make: *** [Makefile:16: test] Error 1
+exit=2
+```
+
+### Repair
+
+Counting convention: we count from the end of evidence capture to the first fully green `make test`, and we do not count conversational turns. A repair tool call is any tool call in that span. A repair cycle is one attempted edit to `src/` followed by one `make test`. The agent seeded this fault itself, so both numbers are lower bounds, not a measure of blind diagnosis.
+
+- Repair tool calls: **2** (1 `Edit` restoring the two guard lines; 1 Bash verification running `make test`)
+- Repair cycles: **1**
+- Automatic hook after the repair `Edit`: silent (no feedback appeared)
+- `git diff --quiet -- src/`: printed `src/ identical to HEAD`
+
+```
+$ make test
+19 passed in 1.45s
+exit=0
+```

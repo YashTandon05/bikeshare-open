@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, fault 2 (rolling-leakage) run from `226ddae`.
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, fault 3 (weather-guard) run from `6f69ea5`.
 
 Each criterion has two boxes:
 
@@ -14,10 +14,10 @@ Each criterion has two boxes:
 |---|---|---|---|
 | 1 | Reproducible repository | 15 | Partly done |
 | 2 | `CLAUDE.md` | 10 | Partly done |
-| 3 | Verification suite | 25 | Feature, contract and weather-guard tests done; faults 1-2 of 4 recorded |
+| 3 | Verification suite | 25 | Feature, contract and weather-guard tests done; faults 1-3 of 4 recorded, fault 4 pending |
 | 4 | Results with baselines | 20 | Validation measured; no report |
-| 5 | Structural enforcement | 10 | Starter hook fired automatically on faults 1-2; faults 3-4 pending |
-| 6 | Agent configuration | 10 | `/seed-fault` written and used twice (faults 1-2); audits not started |
+| 5 | Structural enforcement | 10 | Starter hook fired automatically on faults 1-3; fault 4 (raw-data `cp`) and its catch pending |
+| 6 | Agent configuration | 10 | `/seed-fault` written and used for faults 1-3; audits not started |
 | 7 | Decisions and attribution | 10 | Ongoing decision log; no Attribution section |
 
 ## 1. Reproducible repository (15)
@@ -59,7 +59,7 @@ Each criterion has two boxes:
 | [x] | [ ] | `make test` passes | `19 passed in 1.29s` at the fault-workflow checkpoint (`18 passed` at `935ecdf`) |
 | [x] | [ ] | Fault 1 (forbidden column in `feature_columns`): real red output pasted | `4f3703c`, `docs/SEEDED_FAULTS.md` "Fault: forbidden-column" > "Red test output": `FAILED tests/test_leakage.py::test_no_forbidden_features`, `1 failed, 18 passed`, `exit=2` |
 | [x] | [ ] | Fault 2 (`.shift(1)` removed from `cnt_roll_7`): real red output pasted | `docs/SEEDED_FAULTS.md` "Fault: rolling-leakage" > "Red test output": `FAILED tests/test_leakage.py::test_rolling_mean_excludes_today`, `1 failed, 18 passed`, `exit=2` |
-| [ ] | [ ] | Fault 3 (`raise` removed from the weather encoder): real red output pasted | Not started. Groundwork: `tests/test_leakage.py::test_unknown_weather_label_is_rejected` makes this fault visible, since the raw data has only known labels and nothing else would fail |
+| [x] | [ ] | Fault 3 (`raise` removed from the weather encoder): real red output pasted | `docs/SEEDED_FAULTS.md` "Fault: weather-guard" > "Red test output": `FAILED tests/test_leakage.py::test_unknown_weather_label_is_rejected` (`DID NOT RAISE ValueError`), `1 failed, 18 passed`, `exit=2`. Only that test, added in `6fb1c66`, catches this fault |
 | [ ] | [ ] | Fault 4 (`cp` into `data/raw/` from Bash): what happened, recorded | Not started |
 | [ ] | [ ] | Pasted output matches what the final tests print | Check after all faults |
 
@@ -79,7 +79,7 @@ Each criterion has two boxes:
 | Impl | Verified | Criterion | Evidence |
 |---|---|---|---|
 | [x] | [ ] | Starter hook and permissions still work | `.claude/settings.json` unchanged except `model`; the hook fired on a `src/features.py` edit while building `935ecdf` (a `NameError` from an edit made in two steps) |
-| [ ] | [ ] | Hook stderr pasted for faults 1-3 | 2 of 3 done. Fault 1 (`4f3703c`): automatic feedback appeared, recorded in `docs/SEEDED_FAULTS.md` "Fault: forbidden-column" > "Automatic hook feedback (PostToolUse)". Fault 2: automatic feedback appeared, recorded in "Fault: rolling-leakage" > "Automatic hook feedback (PostToolUse)". Manual diagnostic `exit=2` recorded for both. Fault 3 pending. Tick only when the *automatic* PostToolUse feedback appeared; the manual diagnostic (also recorded, with its measured exit code) does not count |
+| [x] | [ ] | Hook stderr pasted for faults 1-3 | 3 of 3. Automatic PostToolUse feedback appeared after each seeding `Edit` and was recorded verbatim under "Automatic hook feedback (PostToolUse)" in `docs/SEEDED_FAULTS.md`: "Fault: forbidden-column" (`4f3703c`), "Fault: rolling-leakage" (`6f69ea5`), "Fault: weather-guard". Each also has a separately labelled manual diagnostic with measured `exit=2` |
 | [ ] | [ ] | Fault 4: paragraph naming what would catch it (`Stop` hook, `PreToolUse` on Bash, filesystem permission, or a hash check in `make data`) | Not started |
 | [ ] | [ ] | Optional (up to 3 pts): implement the fault-4 catch | Not started |
 
@@ -87,7 +87,7 @@ Each criterion has two boxes:
 
 | Impl | Verified | Criterion | Evidence |
 |---|---|---|---|
-| [x] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | `.claude/skills/seed-fault/SKILL.md` (uses `$ARGUMENTS`, `disable-model-invocation: true`). Created in `6fb1c66`, corrected in `040ee64`. **Real uses:** `/seed-fault rolling-leakage` ran on the corrected text and produced "Fault: rolling-leakage". Earlier, `/seed-fault forbidden-column` produced the "Fault: forbidden-column" record in `docs/SEEDED_FAULTS.md` (`4f3703c`). The table heading that `$ARGUMENTS` was substituting into was fixed afterwards (text only). Verified stays unticked until the final skill text has also run fault 3. (`.claude/skills/run-pipeline/` is still an empty, untracked directory) |
+| [x] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | `.claude/skills/seed-fault/SKILL.md` (uses `$ARGUMENTS`, `disable-model-invocation: true`). Created in `6fb1c66`, corrected in `040ee64`. **Real uses:** `/seed-fault rolling-leakage` and `/seed-fault weather-guard` ran on the current text and produced "Fault: rolling-leakage" (`6f69ea5`) and "Fault: weather-guard". Earlier, `/seed-fault forbidden-column` produced the "Fault: forbidden-column" record in `docs/SEEDED_FAULTS.md` (`4f3703c`). The table heading that `$ARGUMENTS` was substituting into was fixed afterwards (text only). Verified stays unticked for review: on weather-guard the agent added a context line to the `Edit` strings, so the table's literal strings for that row were not used as-is (net diff still matched; see that record). (`.claude/skills/run-pipeline/` is still an empty, untracked directory) |
 | [x] | [ ] | Starter `new-feature` skill kept | `.claude/skills/new-feature/SKILL.md` |
 | [ ] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | Not started |
 | [ ] | [ ] | `reports/audit.jsonl` from `python agent/audit.py . --out reports/audit.jsonl` | Not started |
@@ -107,7 +107,7 @@ Each criterion has two boxes:
 ## Remaining exercises
 
 - [x] Ex 1: add one feature with `/new-feature`: `cnt_std_7`, kept (`e21af14`, `b03f86b`, `935ecdf`)
-- [ ] Ex 2: four seeded faults (2 of 4 done: forbidden-column in `4f3703c` and rolling-leakage, each 2 repair tool calls / 1 cycle; weather-guard and the manual raw-data fault pending), with repair effort for 1-3 (reported as repair tool calls and repair cycles, not conversational turns; see the `/seed-fault` counting convention). Faults 1-3 go through `/seed-fault`; fault 4 (raw-data `cp`) is done by hand, outside the skill
+- [ ] Ex 2: four seeded faults (3 of 4 done: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard; each 2 repair tool calls / 1 repair cycle. The manual raw-data fault 4 is pending). Repair effort is reported as repair tool calls and repair cycles, not conversational turns; see the `/seed-fault` counting convention. Fault 4 is done by hand, outside the skill
 - [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo
 - [ ] Ex 4: target transformation so hgb can compete. Validation only; touch test once at the end and say so; the committed `metrics.json` stays untransformed
 - [ ] Ex 5: one paragraph with numbers on whether ridge is worth deploying over persistence
@@ -128,7 +128,7 @@ Each criterion has two boxes:
 | [x] | 1. Unmodified starter, the first commit | `0654988` |
 | [x] | 2. Failing test for the feature | `e21af14` |
 | [x] | 3. Feature that makes the test pass | `b03f86b` (kept and refactored in `935ecdf`) |
-| [ ] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | 2 of 4 committed: forbidden-column `4f3703c`, rolling-leakage (this experiment's commit). Stays pending until **all four** prescribed experiments are recorded and committed |
+| [ ] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | 3 of 4 committed: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard (this experiment's commit). Stays pending until **all four** prescribed experiments are recorded and committed |
 | [ ] | 5. Audit run | Not started |
 | [ ] | 6. Report | Not started |
 
