@@ -123,3 +123,145 @@ Traceback (most recent call last):
 AssertionError: unclassified raw columns: ['surge_index']; give each a role in src/config.py (DATE_COL, PREDICTOR_INPUT_COLS, or FORBIDDEN)
 exit=1
 ```
+
+## Fault: forbidden-column
+
+- Date: 2026-11-24, run with `/seed-fault forbidden-column`
+- Starting commit: `040ee64` (clean tree; pre-check `make test`: 19 passed in 1.49s, exit=0)
+- Evidence directory: `/tmp/seed-fault-forbidden-column-20261124T125934-LGYN`
+- Raw CSV sha256 before: `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc`; after repair: `sha256sum -c` printed `data/raw/bike_daily.csv: OK`
+
+### Change
+
+One `Edit` to `src/features.py`, which admits `casual` through `feature_columns()`.
+
+```diff
+diff --git a/src/features.py b/src/features.py
+index 3a3c96e..fd19ff9 100644
+--- a/src/features.py
++++ b/src/features.py
+@@ -83,7 +83,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
+ def feature_columns(df: pd.DataFrame) -> list[str]:
+     """Numeric columns that are safe to feed the model."""
+     numeric = df.select_dtypes(include="number").columns
+-    return [c for c in numeric if c not in FORBIDDEN]
++    return [c for c in numeric if c not in FORBIDDEN or c == "casual"]
+ 
+ 
+ if __name__ == "__main__":
+```
+
+`git diff --numstat -- src/`:
+
+```
+1	1	src/features.py
+```
+
+### Automatic hook feedback (PostToolUse)
+
+Shown by Claude Code right after the seeding `Edit`. Copied verbatim. Exit code: 2, inferred from the blocking-error report (Claude Code does not display it).
+
+```
+PostToolUse:Edit hook blocking error from command: "${CLAUDE_PROJECT_DIR}/.claude/hooks/check_leakage.sh": [${CLAUDE_PROJECT_DIR}/.claude/hooks/check_leakage.sh]: Leakage tests failed after editing /home/ytandon/dsc180-methodology/bikeshare-open/src/features.py:
+
+feats =         dteday  instant  season      yr mnth  ... weather_severity cnt_lag_1  cnt_lag_7   cnt_roll_7    cnt_std_7
+0   ...31.0  WINTER  2012.0  DEC  ...              1.0    1796.0      920.0  1531.428571   821.327646
+
+[714 rows x 29 columns]
+
+    def test_no_forbidden_features(feats):
+        """Guards the gate, not the data: feature_columns() excludes FORBIDDEN by
+        construction, so this cannot discover a *new* leaky column. What it
+        catches is someone editing feature_columns() or FORBIDDEN -- which is
+        exactly the fault the Step 7 hook demonstrates."""
+        cols = set(feature_columns(feats))
+>       assert not (cols & FORBIDDEN), f"forbidden columns in feature set: {cols & FORBIDDEN}"
+E       AssertionError: forbidden columns in feature set: {'casual'}
+E       assert not ({'atemp', 'casual', 'cnt_lag_1', 'cnt_lag_7', 'cnt_roll_7', 'cnt_std_7', ...} & {'casual', 'cnt', 'cnt_2d_bfr', 'days_since_2011', 'instant', 'mnth', ...})
+
+tests/test_leakage.py:31: AssertionError
+=============================================== short test summary info ================================================
+FAILED tests/test_leakage.py::test_no_forbidden_features - AssertionError: forbidden columns in feature set: {'casual'}
+1 failed, 8 passed in 0.43s
+```
+
+### Manual hook diagnostic (run by hand, not the automatic trigger)
+
+Run while the fault was in place by piping a synthetic payload into the hook script. Exit code measured: `exit=` is the last line.
+
+```
+$ printf '{"tool_input":{"file_path":"%s"}}' "$PWD/src/features.py" \
+    | CLAUDE_PROJECT_DIR="$PWD" .claude/hooks/check_leakage.sh; echo "exit=$?"
+Leakage tests failed after editing /home/ytandon/dsc180-methodology/bikeshare-open/src/features.py:
+feats =         dteday  instant  season  ...  cnt_lag_7   cnt_roll_7    cnt_std_7
+0   2011-01-10     10.0  WINTER  ...     134....142857   820.919420
+713 2012-12-31    731.0  WINTER  ...      920.0  1531.428571   821.327646
+
+[714 rows x 29 columns]
+
+    def test_no_forbidden_features(feats):
+        """Guards the gate, not the data: feature_columns() excludes FORBIDDEN by
+        construction, so this cannot discover a *new* leaky column. What it
+        catches is someone editing feature_columns() or FORBIDDEN -- which is
+        exactly the fault the Step 7 hook demonstrates."""
+        cols = set(feature_columns(feats))
+>       assert not (cols & FORBIDDEN), f"forbidden columns in feature set: {cols & FORBIDDEN}"
+E       AssertionError: forbidden columns in feature set: {'casual'}
+E       assert not ({'atemp', 'casual', 'cnt_lag_1', 'cnt_lag_7', 'cnt_roll_7', 'cnt_std_7', ...} & {'casual', 'cnt', 'cnt_2d_bfr', 'days_since_2011', 'instant', 'mnth', ...})
+
+tests/test_leakage.py:31: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_leakage.py::test_no_forbidden_features - AssertionError: fo...
+1 failed, 8 passed in 0.44s
+exit=2
+```
+
+### Red test output
+
+As predicted, only `test_no_forbidden_features` went red. `make` exits 2 when a recipe fails.
+
+```
+$ make test
+python -m pytest tests/ -q
+........F..........                                                      [100%]
+=================================== FAILURES ===================================
+__________________________ test_no_forbidden_features __________________________
+
+feats =         dteday  instant  season  ...  cnt_lag_7   cnt_roll_7    cnt_std_7
+0   2011-01-10     10.0  WINTER  ...     134....142857   820.919420
+713 2012-12-31    731.0  WINTER  ...      920.0  1531.428571   821.327646
+
+[714 rows x 29 columns]
+
+    def test_no_forbidden_features(feats):
+        """Guards the gate, not the data: feature_columns() excludes FORBIDDEN by
+        construction, so this cannot discover a *new* leaky column. What it
+        catches is someone editing feature_columns() or FORBIDDEN -- which is
+        exactly the fault the Step 7 hook demonstrates."""
+        cols = set(feature_columns(feats))
+>       assert not (cols & FORBIDDEN), f"forbidden columns in feature set: {cols & FORBIDDEN}"
+E       AssertionError: forbidden columns in feature set: {'casual'}
+E       assert not ({'atemp', 'casual', 'cnt_lag_1', 'cnt_lag_7', 'cnt_roll_7', 'cnt_std_7', ...} & {'casual', 'cnt', 'cnt_2d_bfr', 'days_since_2011', 'instant', 'mnth', ...})
+
+tests/test_leakage.py:31: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_leakage.py::test_no_forbidden_features - AssertionError: fo...
+1 failed, 18 passed in 1.56s
+make: *** [Makefile:16: test] Error 1
+exit=2
+```
+
+### Repair
+
+Counting convention: we count from the end of evidence capture to the first fully green `make test`, and we do not count conversational turns. A repair tool call is any tool call in that span. A repair cycle is one attempted edit to `src/` followed by one `make test`. The agent seeded this fault itself, so both numbers are lower bounds, not a measure of blind diagnosis.
+
+- Repair tool calls: **2** (1 `Edit` reversing the seeded line; 1 Bash verification running `make test`)
+- Repair cycles: **1**
+- Automatic hook after the repair `Edit`: silent (no feedback appeared)
+- `git diff --quiet -- src/`: printed `src/ identical to HEAD`
+
+```
+$ make test
+19 passed in 1.38s
+exit=0
+```
