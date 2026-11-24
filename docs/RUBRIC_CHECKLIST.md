@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, final evaluation and complete REPORT.md draft on branch `final-evaluation-report` (unmerged).
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, report wording and attribution corrections on `final-evaluation-report` (unmerged).
 
 Each criterion has two boxes:
 
@@ -101,7 +101,7 @@ Each criterion has two boxes:
 |---|---|---|---|
 | [x] | [ ] | `DECISIONS.md` keeps the 5 starter lines; new lines dated, newest last | `git diff 0654988 -- docs/DECISIONS.md` only adds lines |
 | [x] | [ ] | One line per decision so far: agent backend, model correction, feature, keep, column classification, tracker | `docs/DECISIONS.md` |
-| [x] | [ ] | `REPORT.md` **Attribution**: first line names the model and size and whether we switched (Sonnet 5.5 planned, Opus 5.5 used, see `b033c19`) | Drafted |
+| [x] | [ ] | `REPORT.md` **Attribution**: first line names the model and size and whether we switched (Sonnet 5.5 planned, Opus 5.5 used, see `b033c19`) | Drafted. Names Opus 5.5 for Yash's Claude Code and SDK work, ChatGPT for planning, and Grok 4.7 via OpenCode for `sdk-audit`. **Pending:** confirm the Issac Roy credit line once `sdk-audit` (`a38f682`) merges |
 | [x] | [ ] | Attribution list: files and functions the agent generated | Drafted in `REPORT.md` |
 | [x] | [ ] | Attribution list: our decisions, each traced to a `DECISIONS.md` line | Drafted; the target and believability lines are now in `docs/DECISIONS.md` |
 | [ ] | [ ] | Every decision has a commit and every commit has a decision | Check at the end |
@@ -112,7 +112,7 @@ Each criterion has two boxes:
 - [x] Ex 2: four seeded faults. Done: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1` (each 2 repair tool calls / 1 repair cycle, which are lower bounds, not conversational turns); fault 4, the manual Bash raw-data copy, recorded with what would catch it
 - [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo. **Our-repo SDK audit done** (`601400b`, `reports/audit.jsonl`). **Peer `/leakage-auditor` audit of a teammate's branch pending**
 - [x] Ex 4: target transformation. Validation (`reports/target_transform_validation.json`) and a single final test look (`reports/target_transform_final_test.json`, `--final-target-test` at `9315d78`): hgb_daily_change test R² 0.4761 / MAE 990.5, vs persistence 0.5099 / 840.1 and ridge 0.6356 / 840.3. Defensibility argued in `REPORT.md`. Committed `metrics.json` untransformed
-- [x] Ex 5: ridge vs persistence argued with numbers in `REPORT.md` (proposed: not yet worth deploying over persistence; test MAE 840.3 vs 840.1). Awaits team sign-off
+- [x] Ex 5: ridge vs persistence argued as one paragraph with numbers in `REPORT.md` (proposed: not to deploy over persistence for now; test average absolute error 840.3 vs 840.1, about 25.6% lower squared error). Awaits team sign-off
 - [ ] Ex 6 (optional): second model size or hosted model, as a subsection under Attribution
 
 ## Required `REPORT.md` structure (2-4 pages)
