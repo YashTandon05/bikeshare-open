@@ -4,32 +4,73 @@ Reference repository for the DSC 180A methodology lesson on agentic
 programming. Forecasts daily Capital Bikeshare ridership (`cnt`) for
 Washington, DC, 2011-2012, with a leakage trap in the data.
 
-The agent is Claude Code driving an **open-weight model running on your own
-machine** through Ollama. No Anthropic account, subscription, or API key is
-needed. Nothing leaves your laptop.
+The agent is Claude Code. This repository was developed with **hosted Claude
+(Opus 5.5) through a signed-in Claude subscription**: `.claude/settings.json`
+sets `"model": "opus"` and has no endpoint overrides. Running a local
+open-weight model through Ollama is still supported as an optional route,
+described below.
 
-## Setup
+## Setup (hosted Claude, as used for this repo)
 
-    # 1. Ollama (the local model server)   https://ollama.com/download
-    ollama serve                           # leave running in its own terminal
-
-    # 2. Claude Code (the agent harness; free to install, no login needed here)
+    # 1. Claude Code, signed in to a Claude plan (run `claude`, then /login)
     curl -fsSL https://claude.ai/install.sh | bash
 
-    # 3. This repo
-    python3 -m venv .venv && source .venv/bin/activate
+    # 2. This repo
+    python3 -m venv .venv && source .venv/bin/activate   # fish: activate.fish
     pip install -r requirements.txt
-    make model          # pulls the base model, builds `bikeshare-coder` with a 64k context
-    make check-model    # confirms Claude Code can reach it and that tool calls work
-    make all            # data -> features -> train, writes reports/metrics.json
+
+    # 3. Pipeline and checks
+    make all            # data -> features -> train; writes reports/metrics.json
     make test           # runs the verification suite
 
     # 4. Start the agent, from the repo root
     claude
 
-`.claude/settings.json` points Claude Code at `http://localhost:11434` and
-names the model, so `claude` works with no environment variables. Run
-`/status` inside Claude Code to confirm it says `bikeshare-coder`.
+Run `/status` inside Claude Code to confirm the model is Opus. No
+`ANTHROPIC_*` environment variables are needed for this route; if any are
+set in your shell, check they do not point at a local server.
+
+## Commands used for the reported results
+
+    make all                                            # official, untransformed metrics
+    make test                                           # verification suite
+    python -m src.train --validation-target-experiment  # Exercise 4, validation only
+    python -m src.train --final-target-test             # Exercise 4, single final test look
+
+    # SDK audit of this repo (separate terminal, not inside a Claude session)
+    env AUDIT_MODEL=opus python agent/audit.py . --out reports/audit.jsonl
+
+`make all` reproduces `reports/metrics.json`. The two `src.train` flags
+write `reports/target_transform_validation.json` and
+`reports/target_transform_final_test.json` and leave `metrics.json`
+untouched. `agent/audit.py` drives the same Claude Code binary as the
+interactive agent; `AUDIT_MODEL` selects the model, and its built-in default
+is the local `bikeshare-coder`, so set `AUDIT_MODEL` for the hosted route.
+
+## Optional: a local model through Ollama
+
+The starter's original route. Claude Code drives an open-weight model on your
+own machine, with no Anthropic account. It was **not** used for the results
+in this repo.
+
+    ollama serve                         # https://ollama.com/download; own terminal
+    make model                           # pulls the base model, builds `bikeshare-coder` (64k context)
+    make check-model                     # confirms Claude Code can reach it and tool calls work
+
+Then point Claude Code at it in `.claude/settings.local.json` (git-ignored)
+rather than editing `settings.json`:
+
+    {
+      "model": "bikeshare-coder",
+      "env": {
+        "ANTHROPIC_BASE_URL": "http://localhost:11434",
+        "ANTHROPIC_AUTH_TOKEN": "ollama",
+        "ANTHROPIC_API_KEY": ""
+      }
+    }
+
+For the SDK auditor on this route, leave `AUDIT_MODEL` unset (it defaults to
+`bikeshare-coder`).
 
 ### Which base model
 
@@ -40,33 +81,13 @@ names the model, so `claude` works with no environment variables. Run
 | 16 GB RAM (any laptop) | `qwen3.5:9b` (~7 GB) | `make model` |
 | 32 GB RAM, or 24 GB+ Apple Silicon | `qwen3.5:27b` (~18 GB) | `make model BASE=qwen3.5:27b` |
 | 48 GB+ | `qwen3.5:35b` (~22 GB) | `make model BASE=qwen3.5:35b` |
-| Under 16 GB, or no patience | a hosted model, below | — |
 
 The 64k context window adds several GB on top of the download size at run
 time. If the model runs but is painfully slow, drop a size, not the context.
-Any tool-capable model from the Ollama library works; the lesson does not
-depend on this one. Record which model you used in `REPORT.md`.
-
-### If your laptop cannot run a model
-
-Ollama can serve the same models from its cloud, and Claude Code can point at
-any endpoint that speaks the Anthropic Messages API. Override the repo
-settings in `.claude/settings.local.json` (git-ignored) rather than editing
-`settings.json`:
-
-    {
-      "model": "qwen3.5:27b-cloud",
-      "env": {
-        "ANTHROPIC_BASE_URL": "https://ollama.com",
-        "ANTHROPIC_AUTH_TOKEN": "<your Ollama API key>",
-        "ANTHROPIC_API_KEY": ""
-      }
-    }
-
-Model names and free-tier limits for hosted models change; check
-`ollama.com/search?c=cloud` for what is current. A paid Anthropic plan also
-works, with `"env": {}` to clear the override, and is the only setup in
-which `model: opus` or `sonnet` names mean anything.
+Ollama can also serve models from its cloud (`ANTHROPIC_BASE_URL`
+`https://ollama.com` with an Ollama API key); model names and free-tier
+limits change, so check `ollama.com/search?c=cloud`. Record which model you
+used in `REPORT.md`.
 
 ## Data
 
@@ -76,16 +97,21 @@ via the processed mirror used in Molnar's *Interpretable Machine Learning*:
     https://raw.githubusercontent.com/christophM/interpretable-ml-book/master/data/bike.csv
 
 The mirror differs from the UCI file. See `src/config.py` for the list.
-`data/raw/bike_daily.csv` is a checked-in copy so the pipeline runs offline;
-it is immutable (writes are denied in `.claude/settings.json`).
+`data/raw/bike_daily.csv` is a checked-in copy so the pipeline runs offline.
+Claude's `Edit`/`Write` tools are denied on `data/raw/` in
+`.claude/settings.json`, but that does not stop a shell command (see fault 4
+in `docs/SEEDED_FAULTS.md`). What protects the numbers is `load_raw()`,
+which refuses any file whose SHA-256 differs from `RAW_SHA256` in
+`src/config.py`.
 
 `python -m src.leakage_demo` reproduces the R^2 = 1.000 result from the lesson.
 
 ## Layout
 
 See `CLAUDE.md` for the standing rules and `src/config.py` for every constant.
-`.claude/` holds the hook, permissions, reviewer subagent and `new-feature`
-skill the lesson builds in Steps 7-8. `model/` holds the Modelfile and the
-readiness check. `agent/audit.py` is the Agent SDK batch auditor from Part 4;
-it uses the same local endpoint (`AUDIT_MODEL` overrides the model). Record
-methodological decisions in `docs/DECISIONS.md`.
+`.claude/` holds the hook, permissions, reviewer subagent, the starter's
+`new-feature` skill and our `seed-fault` skill. `model/` holds the Modelfile
+and readiness check for the optional Ollama route. `agent/audit.py` is the
+Agent SDK batch auditor. Results and their interpretation are in
+`REPORT.md`; methodological decisions in `docs/DECISIONS.md`; fault
+evidence in `docs/SEEDED_FAULTS.md`.
