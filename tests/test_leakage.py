@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from src.config import FORBIDDEN, TARGET
-from src.features import build_features, feature_columns
+from src.features import build_features, encode_weather, feature_columns
 from src.ingest import load_raw
 
 
@@ -72,6 +72,15 @@ def test_rolling_std_excludes_today(feats):
     expected = (sum(squared_devs) / len(window_counts)) ** 0.5  # ddof=0, ~499.70
 
     assert feats.set_index("dteday").cnt_std_7[pd.Timestamp("2011-02-01")] == pytest.approx(expected)
+
+
+def test_unknown_weather_label_is_rejected():
+    """An unmapped label must raise, not become a NaN that dropna() deletes.
+    The raw data only has known labels, so without this test nothing would
+    notice if the guard in encode_weather were removed."""
+    labels = pd.Series(["GOOD", "UNSEEN", "BAD"])
+    with pytest.raises(ValueError, match=r"unmapped weather labels: \['UNSEEN'\]"):
+        encode_weather(labels)
 
 
 def test_no_missing_values(feats):

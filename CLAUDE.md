@@ -8,7 +8,10 @@ rides) from calendar, weather, and lagged-demand features.
 - `make features` - build `data/processed/features.parquet`
 - `make train` - fit models, write `reports/metrics.json`
 - `make test` - pytest; run this before claiming anything works
-- `make all` - the three pipeline stages in order
+- `make all` - the three pipeline stages in order; reproduces the headline
+  metrics in `reports/metrics.json`
+- `/seed-fault <forbidden-column|rolling-leakage|weather-guard>` - one
+  seeded-fault experiment: inject, capture hook and red tests, revert, record
 - After each checkpoint, update `docs/RUBRIC_CHECKLIST.md`; tick a box only
   with a cited file, commit, or recorded output
 

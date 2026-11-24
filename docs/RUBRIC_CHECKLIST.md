@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, at `935ecdf`.
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, fault-workflow preparation checkpoint (after `63b4e61`).
 
 Each criterion has two boxes:
 
@@ -14,10 +14,10 @@ Each criterion has two boxes:
 |---|---|---|---|
 | 1 | Reproducible repository | 15 | Partly done |
 | 2 | `CLAUDE.md` | 10 | Partly done |
-| 3 | Verification suite | 25 | Feature and contract tests done; faults not started |
+| 3 | Verification suite | 25 | Feature, contract and weather-guard tests done; fault workflow ready, no faults run |
 | 4 | Results with baselines | 20 | Validation measured; no report |
 | 5 | Structural enforcement | 10 | Starter hook in place; faults not started |
-| 6 | Agent configuration | 10 | Not started |
+| 6 | Agent configuration | 10 | `/seed-fault` written, not yet run; audits not started |
 | 7 | Decisions and attribution | 10 | Ongoing decision log; no Attribution section |
 
 ## 1. Reproducible repository (15)
@@ -30,7 +30,7 @@ Each criterion has two boxes:
 | [x] | [ ] | Dependencies pinned, including any added ones | `requirements.txt` (nothing added so far) |
 | [x] | [ ] | `.gitignore` no longer ignores `reports/` but still ignores `data/processed/`, `.venv/`, caches | `.gitignore`, changed in `d85aa8a` |
 | [x] | [ ] | `data/processed/`, `.venv/`, `__pycache__/`, `.pytest_cache/` not committed | `git ls-files` shows none at `935ecdf` |
-| [x] | [x] | `data/raw/bike_daily.csv` unchanged (sha256 starts `a6bed1577f6e4de5`) | `sha256sum` gives `a6bed1577f6e4de5...` at `935ecdf` |
+| [x] | [ ] | `data/raw/bike_daily.csv` unchanged (sha256 starts `a6bed1577f6e4de5`) | `sha256sum` gave `a6bed1577f6e4de5...` at `935ecdf` and again at the fault-workflow checkpoint. A final check after fault 4 is still needed |
 | [ ] | [ ] | Fresh clone, `pip install -r requirements.txt`, `make all`, then diff with committed metrics and the `REPORT.md` table | Not done |
 
 ## 2. `CLAUDE.md` (10)
@@ -40,10 +40,10 @@ Each criterion has two boxes:
 | [x] | [ ] | Forbidden columns | `CLAUDE.md` "Non-negotiable rules" |
 | [x] | [ ] | Split rule | `CLAUDE.md` "Never split this data randomly" |
 | [x] | [ ] | Both baselines (mean and persistence) | `CLAUDE.md` "Report the mean baseline **and** the persistence baseline" |
-| [ ] | [ ] | The command that reproduces the headline number, named as such | `make all` is listed, but nothing ties it to the headline number |
+| [x] | [ ] | The command that reproduces the headline number, named as such | `CLAUDE.md` Commands: "`make all` ... reproduces the headline metrics in `reports/metrics.json`" |
 | [ ] | [ ] | Rule for our feature, if needed | Not decided |
-| [ ] | [ ] | Name of our custom skill | Skill not written |
-| [x] | [ ] | Under 60 lines | 43 lines at this checkpoint |
+| [x] | [ ] | Name of our custom skill | `CLAUDE.md` Commands: `/seed-fault <forbidden-column\|rolling-leakage\|weather-guard>` |
+| [x] | [ ] | Under 60 lines | 46 lines at this checkpoint |
 | [ ] | [ ] | Every line changes agent behavior (the grader deletes lines one at a time) | Not reviewed |
 | [x] | n/a | Changes recorded in `DECISIONS.md` | Tracker line, see `docs/DECISIONS.md` |
 
@@ -56,10 +56,10 @@ Each criterion has two boxes:
 | [x] | [ ] | Feature test checks a value on a named date against a hand-computed value from strictly earlier dates | 2011-02-01, expected 499.70 from the counts for Jan 25-31 |
 | [x] | [ ] | Unclassified-column test in `tests/test_contract.py` | `test_raw_columns_are_all_classified`, with the hand-typed `CLASSIFIED_RAW_COLS` in `src/config.py` (`935ecdf`) |
 | [x] | [ ] | Unknown-column rejection shown | `docs/SEEDED_FAULTS.md` "Unclassified raw column rejected": `AssertionError: unclassified raw columns: ['surge_index']` |
-| [x] | [ ] | `make test` passes | `18 passed in 1.17s` at `935ecdf` |
+| [x] | [ ] | `make test` passes | `19 passed in 1.29s` at the fault-workflow checkpoint (`18 passed` at `935ecdf`) |
 | [ ] | [ ] | Fault 1 (forbidden column in `feature_columns`): real red output pasted | Not started |
 | [ ] | [ ] | Fault 2 (`.shift(1)` removed from `cnt_roll_7`): real red output pasted | Not started |
-| [ ] | [ ] | Fault 3 (`raise` removed from the weather encoder): real red output pasted | Not started |
+| [ ] | [ ] | Fault 3 (`raise` removed from the weather encoder): real red output pasted | Not started. Groundwork: `tests/test_leakage.py::test_unknown_weather_label_is_rejected` makes this fault visible, since the raw data has only known labels and nothing else would fail |
 | [ ] | [ ] | Fault 4 (`cp` into `data/raw/` from Bash): what happened, recorded | Not started |
 | [ ] | [ ] | Pasted output matches what the final tests print | Check after all faults |
 
@@ -87,7 +87,7 @@ Each criterion has two boxes:
 
 | Impl | Verified | Criterion | Evidence |
 |---|---|---|---|
-| [ ] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | Not started (`.claude/skills/run-pipeline/` is an empty, untracked directory) |
+| [x] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | `.claude/skills/seed-fault/SKILL.md` (uses `$ARGUMENTS`, `disable-model-invocation: true`). **Created, not yet run.** Verified only once it has produced at least one fault record. (`.claude/skills/run-pipeline/` is still an empty, untracked directory) |
 | [x] | [ ] | Starter `new-feature` skill kept | `.claude/skills/new-feature/SKILL.md` |
 | [ ] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | Not started |
 | [ ] | [ ] | `reports/audit.jsonl` from `python agent/audit.py . --out reports/audit.jsonl` | Not started |
@@ -107,7 +107,7 @@ Each criterion has two boxes:
 ## Remaining exercises
 
 - [x] Ex 1: add one feature with `/new-feature`: `cnt_std_7`, kept (`e21af14`, `b03f86b`, `935ecdf`)
-- [ ] Ex 2: four seeded faults, with turn counts for 1-3
+- [ ] Ex 2: four seeded faults, with turn counts for 1-3. Faults 1-3 go through `/seed-fault`; fault 4 (raw-data `cp`) is done by hand, outside the skill
 - [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo
 - [ ] Ex 4: target transformation so hgb can compete. Validation only; touch test once at the end and say so; the committed `metrics.json` stays untransformed
 - [ ] Ex 5: one paragraph with numbers on whether ridge is worth deploying over persistence
