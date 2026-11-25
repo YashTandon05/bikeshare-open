@@ -13,7 +13,7 @@ Each criterion has two boxes:
 | # | Category | Points | Status |
 |---|---|---|---|
 | 1 | Reproducible repository | 15 | Done. Fresh clone of `edd74cf`: `make all` byte-identical `metrics.json`, 27 passed, 8/8 report rows match (`docs/FINAL_CHECKS.md`); closeout changed no source, test, raw data or metrics file |
-| 2 | `CLAUDE.md` | 10 | Done. 48 lines, line-by-line review finished at closeout: `cnt_std_7` rule added, untested growth/extrapolation gotcha replaced, redundant lines removed |
+| 2 | `CLAUDE.md` | 10 | Done. 47 lines, line-by-line review finished at closeout: `cnt_std_7` rule added, untested growth/extrapolation gotcha replaced, redundant lines removed, module rule shortened to "keep pipeline stages runnable" |
 | 3 | Verification suite | 25 | Done. 27 tests; all 4 faults recorded (fault 4 left the pre-defense suite green); historical red outputs checked against the test source and line numbers at their recorded commits |
 | 4 | Results with baselines | 20 | Done. Final evaluation run once (`9315d78`); `REPORT.md` final, all 8 rows, headline led by the measured baseline comparisons, Exercises 4-5 |
 | 5 | Structural enforcement | 10 | Done. Hook fired automatically on faults 1-3; did not fire on fault 4 (Bash), as the `Edit\|Write` matcher predicts. Fault-4 catch (checksum in `load_raw()`) implemented and shown in an isolated copy, not on the canonical file |
@@ -43,7 +43,7 @@ Each criterion has two boxes:
 | [x] | [x] | The command that reproduces the headline number, named as such | `CLAUDE.md` Commands: "`make all` ... reproduces the headline metrics in `reports/metrics.json`". **Verified:** `make all` reproduced `metrics.json` byte for byte (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
 | [x] | [ ] | Rule for our feature, if needed | `CLAUDE.md` Non-negotiable rules: `cnt_std_7` is the population std (`ddof=0`) over the seven prior calendar days, d-7..d-1 (closeout) |
 | [x] | [ ] | Name of our custom skill | `CLAUDE.md` Commands: `/seed-fault <forbidden-column\|rolling-leakage\|weather-guard>` |
-| [x] | [x] | Under 60 lines | 48 lines after the closeout review (`wc -l`, `docs/FINAL_CHECKS.md` "Closeout documentation checks"); also 48 in the fresh clone of `edd74cf` |
+| [x] | [x] | Under 60 lines | 47 lines after the module-rule edit (`wc -l`); 48 after the closeout review (`docs/FINAL_CHECKS.md` "Closeout documentation checks") and in the fresh clone of `edd74cf` |
 | [x] | [ ] | Every line changes agent behavior (the grader deletes lines one at a time) | Reviewed at closeout: the three single-stage `make` lines are folded into the `make all` line; the `FORBIDDEN` rule no longer lists a partial set of excluded columns; the gotcha that called growth/extrapolation the headline is replaced by "untested explanation; the headline follows the measured baseline comparisons" (`docs/DECISIONS.md`, CLAUDE.md review). Verified stays open: only the grader's deletion test decides it |
 | [x] | n/a | Changes recorded in `DECISIONS.md` | Tracker line, see `docs/DECISIONS.md` |
 

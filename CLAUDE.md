@@ -31,8 +31,7 @@ rides) from calendar, weather, and lagged-demand features.
 ## Style
 - Standard library, pandas, scikit-learn only. No new dependencies
   without asking. Versions are pinned in `requirements.txt`.
-- Modules are runnable: `python -m src.<module>` prints a one-line `OK ...`
-  summary.
+- Keep pipeline stages runnable with `python -m src.<module>`.
 - Paths and constants live in `src/config.py`. Nothing is hardcoded twice.
 
 ## Gotchas
