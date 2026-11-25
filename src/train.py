@@ -16,6 +16,8 @@ reason it fails is the headline result.
 Run: python -m src.train
      python -m src.train --validation-target-experiment   (Exercise 4;
        validation rows only, writes TARGET_TRANSFORM_VALIDATION)
+     python -m src.train --final-target-test              (Exercise 4;
+       single final test look, writes TARGET_TRANSFORM_FINAL_TEST)
 """
 import json
 import sys
@@ -33,6 +35,7 @@ from src.config import (
     METRICS,
     PROCESSED,
     TARGET,
+    TARGET_TRANSFORM_FINAL_TEST,
     TARGET_TRANSFORM_VALIDATION,
     TRAIN_END,
     VALID_END,
@@ -107,19 +110,28 @@ def reconstruct_from_change(model, X: pd.DataFrame):
     return X[LAG_COL].to_numpy(dtype=float) + model.predict(X)
 
 
+def _target_comparison(train: pd.DataFrame, part: pd.DataFrame, cols: list[str]) -> dict:
+    """Fit the four MODELS and hgb-on-change on `train` only; score on `part`.
+    The true `part[TARGET]` is used for scoring and nothing else."""
+    preds = {name: clone(est).fit(train[cols], train[TARGET]).predict(part[cols])
+             for name, est in MODELS.items()}
+    change_model = clone(MODELS["hgb"]).fit(train[cols], train[TARGET] - train[LAG_COL])
+    preds["hgb_daily_change"] = reconstruct_from_change(change_model, part[cols])
+
+    y = part[TARGET]  # used for scoring only
+    return {
+        name: {"r2": round(float(r2_score(y, p)), 4),
+               "mae": round(float(mean_absolute_error(y, p)), 1)}
+        for name, p in preds.items()
+    }
+
+
 def validation_target_experiment() -> dict:
     """Ordinary models vs hgb fitted on cnt - cnt_lag_1, on the validation
     rows only. Test rows are dropped before anything is fitted or scored."""
     df = pd.read_parquet(PROCESSED)
     cols = feature_columns(df)
     train, valid, _ = temporal_split(df)
-
-    preds = {name: clone(est).fit(train[cols], train[TARGET]).predict(valid[cols])
-             for name, est in MODELS.items()}
-    change_model = clone(MODELS["hgb"]).fit(train[cols], train[TARGET] - train[LAG_COL])
-    preds["hgb_daily_change"] = reconstruct_from_change(change_model, valid[cols])
-
-    y = valid[TARGET]  # used for scoring only
     return {
         "experiment": "hgb trained on cnt - cnt_lag_1; prediction = cnt_lag_1 + predicted change",
         "split": "validation only; test rows never fitted, predicted or scored",
@@ -128,16 +140,31 @@ def validation_target_experiment() -> dict:
         "n_train": len(train),
         "n_valid": len(valid),
         "valid_dates": [str(valid.dteday.min().date()), str(valid.dteday.max().date())],
-        "valid": {
-            name: {"r2": round(float(r2_score(y, p)), 4),
-                   "mae": round(float(mean_absolute_error(y, p)), 1)}
-            for name, p in preds.items()
-        },
+        "valid": _target_comparison(train, valid, cols),
     }
 
 
-def markdown_table(scores: dict) -> str:
-    rows = ["| method | valid R^2 | valid MAE (rides) |", "|---|---|---|"]
+def final_target_test() -> dict:
+    """The single, planned final test look for Exercise 4. Same 15 features,
+    same parameters, fitted on the 2011 rows only (no refit on validation),
+    so the test numbers belong to exactly the models validated earlier."""
+    df = pd.read_parquet(PROCESSED)
+    cols = feature_columns(df)
+    train, _, test = temporal_split(df)
+    return {
+        "experiment": "hgb trained on cnt - cnt_lag_1; prediction = cnt_lag_1 + predicted change",
+        "split": "final test, single look; fitted on 2011 train rows only, no validation refit",
+        "n_features": len(cols),
+        "features": cols,
+        "n_train": len(train),
+        "n_test": len(test),
+        "test_dates": [str(test.dteday.min().date()), str(test.dteday.max().date())],
+        "test": _target_comparison(train, test, cols),
+    }
+
+
+def markdown_table(scores: dict, split: str = "valid") -> str:
+    rows = [f"| method | {split} R^2 | {split} MAE (rides) |", "|---|---|---|"]
     rows += [f"| {name} | {s['r2']:.4f} | {s['mae']:.1f} |" for name, s in scores.items()]
     return "\n".join(rows)
 
@@ -150,6 +177,13 @@ if __name__ == "__main__":
         print(markdown_table(res["valid"]))
         print(f"OK target experiment: {res['n_valid']} validation rows "
               f"-> {TARGET_TRANSFORM_VALIDATION.name} (test untouched)")
+    elif "--final-target-test" in sys.argv:
+        res = final_target_test()
+        TARGET_TRANSFORM_FINAL_TEST.parent.mkdir(parents=True, exist_ok=True)
+        TARGET_TRANSFORM_FINAL_TEST.write_text(json.dumps(res, indent=2))
+        print(markdown_table(res["test"], split="test"))
+        print(f"OK final target test: {res['n_test']} test rows "
+              f"-> {TARGET_TRANSFORM_FINAL_TEST.name}")
     else:
         res = fit_and_score()
         METRICS.parent.mkdir(parents=True, exist_ok=True)

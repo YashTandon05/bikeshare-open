@@ -11,6 +11,8 @@ PROCESSED = ROOT / "data" / "processed" / "features.parquet"
 METRICS = ROOT / "reports" / "metrics.json"
 # Exercise 4: validation-only target-transformation experiment (never test).
 TARGET_TRANSFORM_VALIDATION = ROOT / "reports" / "target_transform_validation.json"
+# Exercise 4: the single final test look, same models fitted on 2011 only.
+TARGET_TRANSFORM_FINAL_TEST = ROOT / "reports" / "target_transform_final_test.json"
 
 # Daily Capital Bikeshare counts (Fanaee-T & Gama). Canonical home:
 #   https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset
