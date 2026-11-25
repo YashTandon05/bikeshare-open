@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, report wording and attribution corrections on `final-evaluation-report` (unmerged).
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, `master` (with Issac Roy's reviewed `sdk-audit`, merged in `cf5cb31`) merged into `final-evaluation-report`; report and attribution updated; team review of the report pending.
 
 Each criterion has two boxes:
 
@@ -17,8 +17,8 @@ Each criterion has two boxes:
 | 3 | Verification suite | 25 | Feature, contract, weather-guard, checksum and hardened rolling-mean tests; all 4 faults recorded (fault 4 left the pre-defense suite green) |
 | 4 | Results with baselines | 20 | Final evaluation run once (`9315d78`); REPORT.md complete draft with all 8 rows, headline, Exercises 4-5. Conclusions await team sign-off |
 | 5 | Structural enforcement | 10 | Hook fired automatically on faults 1-3; did not fire on fault 4 (Bash), as the `Edit\|Write` matcher predicts. Fault-4 catch (checksum in `load_raw()`) implemented and shown in an isolated copy |
-| 6 | Agent configuration | 10 | `/seed-fault` written, all three arguments run. SDK audit of our repo run and committed (`reports/audit.jsonl`). Teammate `/leakage-auditor` audit (`docs/AUDIT.md`) pending |
-| 7 | Decisions and attribution | 10 | Ongoing decision log; no Attribution section |
+| 6 | Agent configuration | 10 | `/seed-fault` written, all three arguments run. SDK audit of our repo run and committed (`reports/audit.jsonl`). `agent/audit.py` isolates `Exception` only; cancellation still propagates (`tests/test_audit.py`, 5 tests). Peer review of Issac Roy's `sdk-audit` closed in `docs/AUDIT.md` (CHANGES REQUESTED on `a38f682`, APPROVED WITH DOCUMENTED LIMITATIONS on `c059b5a`) and merged into `master` (`cf5cb31`). Reciprocal review of Yash's branch pending |
+| 7 | Decisions and attribution | 10 | Ongoing decision log; Attribution drafted in `REPORT.md`, including Issac Roy's merged `sdk-audit` work and its review. Final commit/decision cross-check pending |
 
 ## 1. Reproducible repository (15)
 
@@ -91,7 +91,7 @@ Each criterion has two boxes:
 |---|---|---|---|
 | [x] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | `.claude/skills/seed-fault/SKILL.md` (uses `$ARGUMENTS`, `disable-model-invocation: true`). Created in `6fb1c66`, corrected in `040ee64`. **All three arguments run:** `forbidden-column` (`4f3703c`), `rolling-leakage` (`6f69ea5`), `weather-guard` (`a0d7ab1`). On weather-guard the `Edit` included one unchanged context line, but the net diff was exactly the required 2 deletions and 0 additions. **Real uses:** `/seed-fault rolling-leakage` and `/seed-fault weather-guard` ran on the current text and produced "Fault: rolling-leakage" (`6f69ea5`) and "Fault: weather-guard". Earlier, `/seed-fault forbidden-column` produced the "Fault: forbidden-column" record in `docs/SEEDED_FAULTS.md` (`4f3703c`). The table heading that `$ARGUMENTS` was substituting into was fixed afterwards (text only). Verified stays unticked for review: on weather-guard the agent added a context line to the `Edit` strings, so the table's literal strings for that row were not used as-is (net diff still matched; see that record). (`.claude/skills/run-pipeline/` is still an empty, untracked directory) |
 | [x] | [ ] | Starter `new-feature` skill kept | `.claude/skills/new-feature/SKILL.md` |
-| [ ] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | Pending: peer branch audit not started |
+| [x] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | `docs/AUDIT.md`: shared repo URL; Issac Roy's `sdk-audit` reviewed twice (`a38f682` CHANGES REQUESTED, `c059b5a` APPROVED WITH DOCUMENTED LIMITATIONS), each with fenced verbatim `leakage-auditor` output and a separate reviewer verdict. Accepted limitations: a symlink-loop or unresolvable path aborts the batch; interrupted runs lose rows. Merged into `master` in `cf5cb31`. Reciprocal review of Yash's branch pending |
 | [x] | [ ] | `reports/audit.jsonl` from `python agent/audit.py . --out reports/audit.jsonl` | Committed exactly as generated (sha256 `7154daa1...`), from `env AUDIT_MODEL=opus python agent/audit.py . --out reports/audit.jsonl` on `8450800`, 2026-11-24 13:43:54 -0800 (`docs/DECISIONS.md`, SDK audit run). Has every schema field; `findings` has 2 entries |
 | [x] | [ ] | If the auditor flags our repo: fix it, or argue back in `REPORT.md` | Leakage `none`. Both findings answered in the `REPORT.md` draft (Attribution > "SDK audit of our repo"): observed weather accepted as a substantive limit and stated; README test count fixed (cosmetic) |
 
@@ -101,7 +101,7 @@ Each criterion has two boxes:
 |---|---|---|---|
 | [x] | [ ] | `DECISIONS.md` keeps the 5 starter lines; new lines dated, newest last | `git diff 0654988 -- docs/DECISIONS.md` only adds lines |
 | [x] | [ ] | One line per decision so far: agent backend, model correction, feature, keep, column classification, tracker | `docs/DECISIONS.md` |
-| [x] | [ ] | `REPORT.md` **Attribution**: first line names the model and size and whether we switched (Sonnet 5.5 planned, Opus 5.5 used, see `b033c19`) | Drafted. Names Opus 5.5 for Yash's Claude Code and SDK work, ChatGPT for planning, and Grok 4.7 via OpenCode for `sdk-audit`. **Pending:** confirm the Issac Roy credit line once `sdk-audit` (`a38f682`) merges |
+| [x] | [ ] | `REPORT.md` **Attribution**: first line names the model and size and whether we switched (Sonnet 5.5 planned, Opus 5.5 used, see `b033c19`) | Drafted. Names Opus 5.5 for Yash's Claude Code and SDK work, ChatGPT for planning, and Grok 4.7 via OpenCode for `sdk-audit`. Issac Roy's credit confirmed against the merged `docs/DECISIONS.md` entry (`a38f682`: OpenCode with Grok 4.7; tool for `c059b5a` not documented); `sdk-audit` merged in `cf5cb31` |
 | [x] | [ ] | Attribution list: files and functions the agent generated | Drafted in `REPORT.md` |
 | [x] | [ ] | Attribution list: our decisions, each traced to a `DECISIONS.md` line | Drafted; the target and believability lines are now in `docs/DECISIONS.md` |
 | [ ] | [ ] | Every decision has a commit and every commit has a decision | Check at the end |
@@ -110,7 +110,7 @@ Each criterion has two boxes:
 
 - [x] Ex 1: add one feature with `/new-feature`: `cnt_std_7`, kept (`e21af14`, `b03f86b`, `935ecdf`)
 - [x] Ex 2: four seeded faults. Done: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1` (each 2 repair tool calls / 1 repair cycle, which are lower bounds, not conversational turns); fault 4, the manual Bash raw-data copy, recorded with what would catch it
-- [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo. **Our-repo SDK audit done** (`601400b`, `reports/audit.jsonl`). **Peer `/leakage-auditor` audit of a teammate's branch pending**
+- [x] Ex 3: audit a teammate; run `agent/audit.py` on our repo. **Our-repo SDK audit done** (`601400b`, `reports/audit.jsonl`). **Teammate audit done:** `docs/AUDIT.md` (Issac Roy's `sdk-audit`, approved with documented limitations on `c059b5a`, merged in `cf5cb31`). Issac's reciprocal review of Yash's branch is pending
 - [x] Ex 4: target transformation. Validation (`reports/target_transform_validation.json`) and a single final test look (`reports/target_transform_final_test.json`, `--final-target-test` at `9315d78`): hgb_daily_change test R² 0.4761 / MAE 990.5, vs persistence 0.5099 / 840.1 and ridge 0.6356 / 840.3. Defensibility argued in `REPORT.md`. Committed `metrics.json` untransformed
 - [x] Ex 5: ridge vs persistence argued as one paragraph with numbers in `REPORT.md` (proposed: not to deploy over persistence for now; test average absolute error 840.3 vs 840.1, about 25.6% lower squared error). Awaits team sign-off
 - [ ] Ex 6 (optional): second model size or hosted model, as a subsection under Attribution

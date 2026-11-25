@@ -3,9 +3,11 @@
 > **Status: complete draft for team review.** Every number is copied from a
 > committed JSON file named next to it. The conclusions in *Headline
 > finding* and *Exercise 5* are **proposed** and await our sign-off.
-> Still pending outside this report: the peer `/leakage-auditor` audit
-> (`docs/AUDIT.md`), the fresh-clone reproduction check, and merging the
-> `sdk-audit` branch (see Attribution).
+> Done since the draft: the peer `/leakage-auditor` review of Issac Roy's
+> `sdk-audit` (`docs/AUDIT.md`), approved with documented limitations and
+> merged into `master` (`cf5cb31`). Still pending: team review of this
+> report, Issac Roy's reciprocal review of this branch, and the
+> fresh-clone reproduction check.
 
 **Prediction-time assumption, applies throughout.** The weather inputs
 (`temp`, `atemp`, `hum`, `windspeed`, `weather`) are the day's *observed*
@@ -144,8 +146,8 @@ published by Anthropic) for Yash Tandon's Claude Code work and the SDK
 audit. That was a switch from the planned Sonnet 5.5 and from the starter's
 local `bikeshare-coder` (`b033c19`, agent-backend lines in
 `docs/DECISIONS.md`). Other models: ChatGPT for planning outside the repo,
-and Grok 4.7 via OpenCode for the `sdk-audit` branch (pending merge, see
-below). Not all team agent work used Opus.
+and Grok 4.7 via OpenCode for Issac Roy's first `sdk-audit` commit (merged,
+see below). Not all team agent work used Opus.
 
 **Contributors and tools.**
 
@@ -162,13 +164,23 @@ below). Not all team agent work used Opus.
   `/seed-fault` skill.
 - **Claude Opus 5.5 via the Agent SDK** (`agent/audit.py`,
   `AUDIT_MODEL=opus`): audited this repo.
-- **Pending merge of `sdk-audit` (`a38f682`, not on this branch):** credit
-  **Issac Roy**, who changed `agent/audit.py` so one raised SDK run no
-  longer aborts the batch, and added `tests/test_audit.py`. The work used
-  **OpenCode with Grok 4.7**, not Opus, as recorded in that branch's
-  `docs/DECISIONS.md` entry. Confirm this line against the merged entry.
-- The starter's `/leakage-auditor` subagent has not been run yet: the peer
-  audit is pending.
+- **Issac Roy** (`sdk-audit`, merged into `master` in `cf5cb31` and into
+  this branch): changed `agent/audit.py` so one ordinary SDK exception
+  becomes an error row instead of aborting the batch (`a38f682`), then,
+  after review, made the resolved directory name the authoritative `repo`
+  label (`c059b5a`). Issac also added `tests/test_audit.py` (5 tests, mocked
+  `query`, no API calls). Per the merged `docs/DECISIONS.md` entry,
+  `a38f682` was written in **OpenCode with Grok 4.7**, not Opus. The tool
+  and model for `c059b5a` are not documented in its commit or its
+  `docs/DECISIONS.md` line.
+- **Peer review of `sdk-audit`:** Yash Tandon, using Claude Opus 5.5 via
+  Claude Code and the starter's `/leakage-auditor` subagent (one fresh
+  invocation per review round). Verdicts and verbatim auditor output are in
+  `docs/AUDIT.md`. `a38f682`: CHANGES REQUESTED. `c059b5a`: APPROVED WITH
+  DOCUMENTED LIMITATIONS, for valid, resolvable repository directories.
+  A path whose `resolve()` raises (e.g. a symlink loop) still aborts the
+  batch, and an interrupted run still loses completed rows. Both are
+  accepted, not fixed.
 
 **Agent-generated files and functions** (Claude Opus 5.5 via Claude Code;
 reviewed before each commit):
