@@ -131,7 +131,7 @@ Each criterion has two boxes:
 | [x] | 2. Failing test for the feature | `e21af14` |
 | [x] | 3. Feature that makes the test pass | `b03f86b` (kept and refactored in `935ecdf`) |
 | [x] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | 4 of 4 distinct faults committed: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1`, Bash raw-data copy `b080d81`. Later rechecks (the post-hardening `rolling-leakage` recheck is recorded under its own heading) do not change the count of 4 |
-| [ ] | 5. Audit run | SDK audit committed in `601400b` (branch `final-evaluation-report`). Peer audit (`docs/AUDIT.md`) commit pending |
+| [ ] | 5. Audit run | SDK audit committed in `601400b` (branch `final-evaluation-report`, not yet on `master`). Peer audit committed in `9df6f70` and `050eaa0` (`docs/AUDIT.md`), on `master` via `cf5cb31`. Tick once this branch is merged |
 | [ ] | 6. Report | Draft `6dd265e`; complete draft in the final-evaluation commit on `final-evaluation-report`. Tick once it is merged and the conclusions are signed off |
 
 Setup commits `d85aa8a` and `b033c19` come between 1 and 2; each has a `DECISIONS.md` line.
