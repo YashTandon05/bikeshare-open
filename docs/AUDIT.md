@@ -245,3 +245,59 @@ So R2 holds in the code but nothing enforces it: someone widening the catch to `
 ### Final reviewer verdict: APPROVED WITH DOCUMENTED LIMITATIONS
 
 Yash Tandon, 2026-11-24, on `c059b5ae8854596ce24c6e195b2eb5708467bd91`. This replaces the proposed verdict above, which stays as a record. Approval covers the assignment's use only: `agent/audit.py` run on valid, resolvable repository directories, as in the planned `env AUDIT_MODEL=opus python agent/audit.py . --out reports/audit.jsonl`. The changes requested on `a38f682` are resolved. The resolved directory name now overrides any model-supplied `"repo"` on the structured-output and JSON-fallback paths, `Path(".")` gets a non-empty label, and ordinary `Exception`s are still isolated, with the other repos kept in input order. `tests/test_audit.py` gave 5 passed and `make test` gave 27 passed on `c059b5a`, with a mocked `query` and no API calls. Cancellation and process interruption (`CancelledError`, `BaseExceptionGroup[CancelledError]`, `KeyboardInterrupt`, `SystemExit`) still propagate, as intended; no test enforces this yet. The symlink-loop failure (B1) is real and **not fixed**: if `repo.resolve()` raises, the whole batch aborts with no rows. It is accepted as an invalid-input limitation, because our planned invocation never passes an unresolvable path. Interrupted runs still lose completed rows, because results are written only after the batch finishes; this stays a documented limitation. Not every finding was fixed, and not every input is supported. Still open and deferred as optional SDK hardening: B2 (no tests for propagation or the `Path(".")` error records), B3 (a symlinked argument is labelled with its target's name), the non-dict JSON fallback, duplicate folder names, and the empty label for `/`. The author's Python 3.12.1 is accepted on the author's statement; this machine has 3.12.3. Cleared to merge into `master`.
+
+## final-evaluation-report: methodology review of the published report
+
+**Status: NO CHANGES REQUESTED** (reciprocal review; not merged)
+
+| Field | Value |
+|---|---|
+| Shared repository | https://github.com/YashTandon05/bikeshare-open |
+| Author | Yash Tandon |
+| Reviewer | Issac Roy |
+| Branch | `final-evaluation-report` |
+| Base | `origin/master` @ `cf5cb31` |
+| Reviewed commit | `1cc391c0c5106ba759afe10b21ac48dc230f8b03` |
+| Date | 2026-11-24 |
+| Runner | Fresh Grok 4.7 general subagent, following `.claude/agents/leakage-auditor.md`. Not Claude Code. The Claude account (`issacroy05@gmail.com`) returned `Credit balance is too low`, and no local model was running. |
+
+### Test evidence (reviewer-run on `1cc391c`, independent of the subagent)
+
+Python 3.12.1 (`tags/v3.12.1:2305ca5`), pytest 9.1.1, from the worktree `.venv`.
+
+The working copy of `data/raw/bike_daily.csv` was CRLF because `core.autocrlf=true`. The test run used the git blob, sha256 `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc`, then the working copy was restored. The CSV was not committed.
+
+| Command | Result |
+|---|---|
+| `.venv/Scripts/python.exe -m pytest tests/ -q --tb=line` | `27 passed in 100.73s` |
+
+### Auditor output (verbatim)
+
+The subagent's final message, unedited. It is fenced so its headings stay inside the record.
+
+````text
+All five checks pass: no feature restates `cnt` at time t, lags and the split are temporal, the 2011-03-10 gap is handled on a calendar index, row loss is exactly the bounded 14, and both baselines sit next to every model score.
+
+Pytest failed only because the working copy of `data/raw/bike_daily.csv` is CRLF from `core.autocrlf=true` (`i/lf w/crlf`). That is not a methodology finding. The git blob is LF, sha256 `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc`, matching `RAW_SHA256`. The audit used that blob. No repo file was edited.
+
+Commands and results:
+
+`git diff origin/master...HEAD -- src/train.py src/config.py src/features.py REPORT.md reports/target_transform_final_test.json reports/metrics.json docs/DECISIONS.md`  
+`src/features.py` and `reports/metrics.json` are unchanged. The new scoring path is `src/train.py` `_target_comparison` (line 113) and `final_target_test` (line 147).
+
+`git ls-files --eol data/raw/bike_daily.csv` → `i/lf w/crlf`. Working-copy sha256 `13e33ae5…`; LF normalization and `git cat-file blob HEAD:data/raw/bike_daily.csv` both sha256 `a6bed157…`.
+
+`.venv/Scripts/python.exe` audit against the git blob (728 rows, 2011-01-03 to 2012-12-31):
+
+1. Target leakage. `casual + registered - cnt` max abs diff `0.0` on every raw row. Feature list is the 15 committed columns. Intersection with `FORBIDDEN` is empty. No feature equals `cnt`, `casual`, `registered`, `casual+registered`, `cnt-casual`, or `cnt-registered`. No pair sums or differs to `cnt`. Highest correlation with `cnt` is `cnt_roll_7` at 0.849, not 1. Zeroing the test target does not change ridge, hgb, or `hgb_daily_change` predictions. `reconstruct_from_change` equals `cnt_lag_1 + predict(X)`.
+2. Temporal ordering. `cnt_roll_7` and `cnt_std_7` are `shift(1).rolling(7)` (`src/features.py` lines 76 and 78). On all 714 kept rows, lag 1, lag 7, roll, and population std match the previous calendar days and do not include today (`bad_counts` all 0). Split is by date: train 2011-01-10 to 2011-12-31 (348), valid 2012-01-01 to 2012-06-30 (182), test 2012-07-01 to 2012-12-31 (184), overlap 0. `StandardScaler.n_samples_seen_` is 348 and its mean equals the train mean, not the all-rows mean and not the train+valid mean. The mean baseline equals the 2011 mean only. HGB `early_stopping='auto'` stays off because `n_samples` 348 is not above 10000 (`n_iter_` 300); the internal `train_test_split` in sklearn does not run, and no eval set is passed. A train+valid ridge refit changes test predictions, so `final_target_test` is not secretly refit on validation.
+3. Calendar gaps. The only missing day is 2011-03-10. `reindex_to_calendar` yields 729 rows with step 1. After `dropna`, the feature frame skips 2011-03-09 to 2011-03-18, but `cnt_lag_1` on 2011-03-18 is 2744, the raw count on 2011-03-17, not 1891 from the previous kept row 2011-03-09.
+4. Silent row loss. No `.merge()` in `src/`. `encode_weather` raises on an unmapped label. Raw NaN count is 0. `dropna` drops 14 rows, equal to `LAG_WARMUP + LAG_WARMUP * missing_days` (7 + 7). The bound is asserted in `tests/test_contract.py` line 112. The feature frame has 0 NaNs.
+5. Baselines. `fit_and_score`, `validation_target_experiment`, and `final_target_test` each include `baseline_mean` and `baseline_persistence` beside ridge, hgb, and, where present, `hgb_daily_change`. Recomputed scores match `reports/metrics.json`, `reports/target_transform_final_test.json`, `reports/target_transform_validation.json`, and the 14-feature `reports/metrics_before_feature.json` with no mismatches. Unrounded test MAE is persistence 840.076 vs ridge 840.274. Squared-error reduction is 0.25645, the reported 25.6%.
+
+`.venv/Scripts/python.exe -m pytest tests/test_leakage.py tests/test_contract.py tests/test_split.py -q --tb=line` → `2 failed, 4 passed, 16 errors`. Every error and both failures are the working-copy checksum mismatch (`expected a6bed157…, got 13e33ae5…`), including the fault-4 test, whose expected altered hash `cae60e1c…` does not appear because the CRLF copy is already a different file. Not a methodology finding.
+````
+
+### Reviewer verdict
+
+Issac Roy, 2026-11-24, on `1cc391c`. No auditor finding changes a published number or invalidates a conclusion. The five checks passed. The Results table matches `reports/metrics.json` to the printed digit, including ridge test R² 0.6356 and MAE 840.3 against persistence 0.5099 and 840.1. The Exercise 5 claim of about 25.6% lower squared error is the rounded-R² arithmetic the report shows: `(1-0.6356)/(1-0.5099) ≈ 0.744`, so the reduction is about 0.256. The auditor's unrounded reduction, 0.25645, agrees to that printed digit. The conclusion that ridge is not worth deploying over persistence on average absolute error is consistent with 840.3 vs 840.1, and the report already states the observed-weather caveat and that `hgb_daily_change` loses to persistence on test. None of those conclusions need a change. Nonblocking: on this Windows checkout, `core.autocrlf=true` rewrites the raw CSV to CRLF, so pytest fails the checksum until the working copy is the git blob. That is not a data change and does not move a reported number. This review followed the leakage-auditor checklist in a fresh Grok 4.7 subagent, not Claude Code, because the Claude account had no credits. The branch stays unmerged.
