@@ -4,12 +4,9 @@ Daily Capital Bikeshare counts, 2011-2012. We forecast `cnt` (total daily
 rides) from calendar, weather, and lagged-demand features.
 
 ## Commands
-- `make data` - download raw CSV and assert its shape
-- `make features` - build `data/processed/features.parquet`
-- `make train` - fit models, write `reports/metrics.json`
+- `make all` - `make data`, `make features`, `make train` in order;
+  reproduces the headline metrics in `reports/metrics.json`
 - `make test` - pytest; run this before claiming anything works
-- `make all` - the three pipeline stages in order; reproduces the headline
-  metrics in `reports/metrics.json`
 - `/seed-fault <forbidden-column|rolling-leakage|weather-guard>` - one
   seeded-fault experiment: inject, capture hook and red tests, revert, record
 - After each checkpoint, update `docs/RUBRIC_CHECKLIST.md`; tick a box only
@@ -17,14 +14,16 @@ rides) from calendar, weather, and lagged-demand features.
 
 ## Non-negotiable rules
 - **Never** put `casual` or `registered` in a feature set:
-  `casual + registered == cnt` exactly. `src/config.py` lists these and the
-  other excluded columns (`cnt_2d_bfr`, raw time indexes) with the reason
-  for each. Derive feature lists from `FORBIDDEN`; never hand-type them.
+  `casual + registered == cnt` exactly. `FORBIDDEN` in `src/config.py`
+  lists every excluded column with its reason. Derive feature lists from
+  `FORBIDDEN`; never hand-type them.
 - **Never** split this data randomly. Use `src.train.temporal_split`.
   Train = 2011, valid = H1 2012, test = H2 2012. Never tune on test.
 - Any new lag or rolling feature must be built on a gap-free calendar
   index (`src.features.reindex_to_calendar`) and must `.shift(1)` before
   it aggregates. Add a test for it in `tests/test_leakage.py`.
+- `cnt_std_7` is the population std (`ddof=0`, not pandas' default
+  `ddof=1`) of `cnt` over the seven prior calendar days, d-7..d-1.
 - Report the mean baseline **and** the persistence baseline (yesterday's
   count) alongside every model. A negative R^2 is a finding, not a bug
   to hide.
@@ -42,7 +41,8 @@ rides) from calendar, weather, and lagged-demand features.
 - `weather` uses the labels `GOOD` / `MISTY` / `BAD`, not the UCI codes 1-4.
 - A `load_raw()` checksum mismatch means the raw CSV changed. Investigate,
   then restore the trusted file; never edit `RAW_SHA256` to match.
-- Ridership grew ~65% from 2011 to 2012, so tree models trained on 2011
-  cannot extrapolate to 2012. That is the headline result, not an error.
+- Ridership grew ~65% from 2011 to 2012. "Trees cannot extrapolate past
+  2011 levels" is an untested explanation for hgb's failure, not a result;
+  the headline must follow the measured comparisons with both baselines.
 - 2012-10-29 (Hurricane Sandy, 22 rides) is in the test set. Expect it in
   any residual plot.

@@ -1,18 +1,16 @@
 # Bikeshare demand: methodology report
 
-> Every number is copied from a committed JSON file named next to it. Both
-> peer reviews and the verbatim auditor output are in `docs/AUDIT.md`; the
-> fresh-clone reproduction is recorded in `docs/FINAL_CHECKS.md`.
+Every number is copied from a committed JSON file named next to it. Peer
+reviews and verbatim auditor output: `docs/AUDIT.md`; fresh-clone
+reproduction: `docs/FINAL_CHECKS.md`.
 
 **Prediction-time assumption, applies throughout.** The weather inputs
 (`temp`, `atemp`, `hum`, `windspeed`, `weather`) are the day's *observed*
 values, so the ridge and hgb results are **conditional on observed
-weather** for the day being forecast. How they would perform with
-*forecast* weather, as an operational forecaster would have, is
-**untested**. The lag features assume yesterday's final count is known
-before today is forecast. The two baselines (training mean, persistence)
-use no weather. "Average absolute error" below is the mean absolute error
-(MAE), in rides per day.
+weather**; performance with *forecast* weather is **untested**. The lag
+features assume yesterday's final count is known before today is
+forecast. The two baselines (training mean, persistence) use no weather.
+"Avg. abs. error" is the mean absolute error (MAE), in rides per day.
 
 ## Results
 
@@ -22,49 +20,41 @@ H2 2012 (184 rows). "Before" is the starter feature set (14 features,
 `reports/metrics_before_feature.json`, frozen before feature work). "After"
 adds `cnt_std_7`, the population standard deviation of `cnt` over the seven
 calendar days before each date (15 features, `reports/metrics.json`,
-produced by `make all`).
+produced by `make all`). The baselines do not use `cnt_std_7`, so their
+rows are identical before and after.
 
-| model | feature set | valid R² | valid avg. absolute error | test R² | test avg. absolute error |
+| model | features | valid R² | valid avg. abs. error | test R² | test avg. abs. error |
 |---|---|---|---|---|---|
 | baseline_mean | before (14) | -0.9318 | 2002.2 | -2.1441 | 2847.7 |
-| baseline_mean | after (15, + cnt_std_7) | -0.9318 | 2002.2 | -2.1441 | 2847.7 |
+| baseline_mean | after (15) | -0.9318 | 2002.2 | -2.1441 | 2847.7 |
 | baseline_persistence | before (14) | 0.4507 | 900.6 | 0.5099 | 840.1 |
-| baseline_persistence | after (15, + cnt_std_7) | 0.4507 | 900.6 | 0.5099 | 840.1 |
+| baseline_persistence | after (15) | 0.4507 | 900.6 | 0.5099 | 840.1 |
 | ridge | before (14) | 0.6475 | 832.9 | 0.5833 | 947.1 |
-| ridge | after (15, + cnt_std_7) | 0.7224 | 700.4 | 0.6356 | 840.3 |
+| ridge | after (15) | 0.7224 | 700.4 | 0.6356 | 840.3 |
 | hgb | before (14) | 0.2185 | 1296.6 | -0.4975 | 1972.6 |
-| hgb | after (15, + cnt_std_7) | 0.0977 | 1381.6 | -0.6959 | 2108.4 |
-
-The baselines do not use `cnt_std_7`, so their rows are identical before
-and after.
+| hgb | after (15) | 0.0977 | 1381.6 | -0.6959 | 2108.4 |
 
 **Evaluation history.** We kept `cnt_std_7` on validation alone (ridge
 +0.0749 R², hgb -0.1208). The default pipeline computes test metrics on
 every run, but no feature, transformation or model choice used them. The
-final look was planned and recorded before it ran: `make all` and
-`python -m src.train --final-target-test`, run once each on 2026-11-24 at
-commit `9315d78`, after the evaluation code was committed. `make all`
-reproduced `reports/metrics.json` byte for byte.
+final look was planned and recorded first, then `make all` and
+`python -m src.train --final-target-test` ran once each on 2026-11-24 at
+commit `9315d78`; `make all` reproduced `reports/metrics.json` byte for byte.
 
 ## Headline finding
 
-A tree model trained on 2011 fails on 2012, while a linear model succeeds
-but barely beats "yesterday again". Ridership grew so much that the
-training-mean baseline (the 2011 average) scores test R² **-2.1441**, with
-an average absolute error of **2847.7**. Ordinary hgb scores test R²
-**-0.6959** (average absolute error **2108.4**). A negative R² means it does
-worse than the test period's own mean, a number no forecaster has in
-advance. That is not the same as losing to our training-mean baseline:
-hgb still **beats** that baseline, but **substantially underperforms
-persistence** (test R² **0.5099**, average absolute error **840.1**), which
-predicts yesterday's count. Its failure fits trees being unable to
-extrapolate past 2011 levels, but we did not test that cause. Ridge reaches
-test R² **0.6356**, with an average absolute error (**840.3**) essentially
-equal to persistence's. Adding `cnt_std_7` helped ridge on both splits
-(test R² +0.0523, average absolute error -106.8) and hurt hgb on both (test
-R² -0.1984, average absolute error +135.8); we kept it, on validation, for
-ridge. The ridge and hgb results are conditional on observed same-day
-weather; operational performance with forecast weather is untested.
+Measured against the baselines, ridge barely beats "yesterday again" and
+hgb loses to it. On test, persistence (yesterday's count) scores R²
+**0.5099** with an average absolute error of **840.1**; ridge reaches R²
+**0.6356** at essentially the same error (**840.3**). Ordinary hgb scores
+R² **-0.6959** (error **2108.4**): it **beats** the training-mean baseline
+(the 2011 average, R² **-2.1441**, error **2847.7**) but **substantially
+underperforms persistence**. Its negative R² means it does worse than the
+test period's own mean, a number no forecaster has in advance. That trees
+cannot extrapolate past 2011 levels fits this pattern but was not tested.
+Adding `cnt_std_7` helped ridge on both splits (test R² +0.0523, error
+-106.8) and hurt hgb on both (test R² -0.1984, error +135.8); we kept it,
+on validation, for ridge.
 
 ## Exercise 4: target transformation
 
@@ -80,7 +70,7 @@ reconstruction uses only the feature frame. We ran it on validation
 (`--final-target-test`, no refit on validation). The committed
 `reports/metrics.json` stays untransformed.
 
-| method | valid R² | valid avg. absolute error | test R² | test avg. absolute error |
+| method | valid R² | valid avg. abs. error | test R² | test avg. abs. error |
 |---|---|---|---|---|
 | baseline_mean | -0.9318 | 2002.2 | -2.1441 | 2847.7 |
 | baseline_persistence | 0.4507 | 900.6 | 0.5099 | 840.1 |
@@ -91,27 +81,21 @@ reconstruction uses only the feature frame. We ran it on validation
 Sources: `reports/target_transform_validation.json`,
 `reports/target_transform_final_test.json`.
 
-**What it shows.**
+**What it shows.** Predicting the change transforms hgb: R² +0.4665 on
+validation and +1.1720 on test; average absolute error -495.8 and -1117.9.
+On validation it edged past persistence (R² +0.1135, error -14.8), an
+advantage we had flagged as within noise, with no uncertainty estimate.
+**On test it did not hold up:** 0.4761 vs 0.5099 R², 990.5 vs 840.1 error.
+It stays behind ridge on both splits, and it **does not establish why**
+ordinary hgb fails; extrapolation fits the pattern but was not tested.
 
-- Predicting the change transforms hgb: R² +0.4665 on validation and
-  +1.1720 on test; average absolute error -495.8 and -1117.9.
-- On validation it edged past persistence (R² +0.1135, average absolute
-  error -14.8). **On test it did not:** 0.4761 vs 0.5099 R², 990.5 vs 840.1
-  average absolute error. The small validation advantage, which we flagged
-  as within noise and had no uncertainty estimate, did not hold up.
-- It stays behind ridge on both splits.
-- It **does not establish why** ordinary hgb fails. Extrapolation fits the
-  pattern but was not tested directly.
-
-**Defensible, or a way to win?** It is defensible as a method. It assumes
-only what persistence and the lag features already assume: yesterday's
-observed count is available before today is forecast. Like ridge and
-ordinary hgb, its results are conditional on observed weather. It was a
-structural choice (differencing), fixed before the run and not tuned. It
-applies only one day ahead; further out, yesterday's count would itself be
-a prediction. But it does not let gradient boosting compete. It rescues
-hgb from failure, yet on test it loses to the simplest baseline, so we
-would not adopt it.
+**Defensible, or a way to win?** Defensible as a method: it assumes only
+what persistence and the lag features already assume (yesterday's observed
+count is known before today is forecast), and differencing was a
+structural choice fixed before the run, not tuned. It applies only one day
+ahead; further out, yesterday's count would itself be a prediction. But it
+does not let gradient boosting compete: it rescues hgb from failure, yet
+on test loses to the simplest baseline, so we would not adopt it.
 
 ## Exercise 5: ridge vs persistence
 
@@ -124,14 +108,14 @@ from the rounded R² values). These aggregates do not tell us which days or
 which errors ridge improves, so we make no claim about where the gain
 comes from. The advantage also shrank from validation, where ridge's
 average absolute error was 700.4 vs 900.6 and its squared error about 49%
-lower. Ridge's numbers are conditional on observed same-day weather, so its
-performance with the forecast weather a deployed system would receive is
-untested. Persistence uses yesterday's validated count, has no fitted
-parameters, and needs no weather feed. We estimated no uncertainty: one
-split of 184 test days, including Hurricane Sandy (2012-10-29, 22 rides).
-Given equal average absolute error, an untested operational setting, and
-no uncertainty estimate, persistence should remain the default. Ridge is a
-candidate if a forecast-weather evaluation shows it keeps its squared-error
+lower. Ridge's scores assume observed same-day weather; with the forecast
+weather a deployed system would receive, it is untested. Persistence uses
+yesterday's validated count, has no fitted parameters, and needs no
+weather feed. We estimated no uncertainty: one split of 184 test days,
+including Hurricane Sandy (2012-10-29, 22 rides). With equal average
+absolute error, an untested operational setting and no uncertainty
+estimate, persistence should remain the default; ridge becomes a candidate
+if a forecast-weather evaluation shows it keeps its squared-error
 advantage and that advantage matters for the intended use.
 
 ## Attribution
@@ -140,8 +124,7 @@ advantage and that advantage matters for the intended use.
 published by Anthropic) for Yash Tandon's Claude Code work, the SDK audit
 and Yash's peer review. That was a switch from the planned Sonnet 5.5 and
 from the starter's local `bikeshare-coder` (`b033c19`, agent-backend lines
-in `docs/DECISIONS.md`). Not all team agent work used Opus: Issac Roy used
-Grok 4.7 (see below), and ChatGPT was used for planning outside the repo.
+in `docs/DECISIONS.md`). Not all team agent work used Opus; see below.
 
 **Contributors and tools.**
 
@@ -150,19 +133,16 @@ Grok 4.7 (see below), and ChatGPT was used for planning outside the repo.
   reviewed every commit, ran the SDK audit, and approved or denied agent
   actions. Reviewed Issac's `sdk-audit` with Claude Opus 5.5 via Claude
   Code and a fresh `/leakage-auditor` subagent per round: CHANGES REQUESTED
-  on `a38f682`, then APPROVED WITH DOCUMENTED LIMITATIONS on `c059b5a`, for
-  valid, resolvable repository directories (a path whose `resolve()`
-  raises still aborts the batch; an interrupted run still loses completed
-  rows; both accepted, not fixed).
+  on `a38f682`, then APPROVED WITH DOCUMENTED LIMITATIONS on `c059b5a`
+  (limitations in `docs/AUDIT.md`).
 - **Issac Roy:** changed `agent/audit.py` so one ordinary SDK exception
   becomes an error row instead of aborting the batch (`a38f682`, written in
-  **OpenCode with Grok 4.7**, per `docs/DECISIONS.md`), then made the
-  resolved directory name the authoritative `repo` label (`c059b5a`; its
-  tool and model are not documented), and added `tests/test_audit.py` (5
-  tests, mocked `query`). Merged in `cf5cb31`. Reviewed this report at
-  `1cc391c` with a fresh **Grok 4.7** general subagent following
-  `.claude/agents/leakage-auditor.md`, not Claude Code: no changes
-  requested (`4d004fd`).
+  **OpenCode with Grok 4.7**, per `docs/DECISIONS.md`), made the resolved
+  directory name the authoritative `repo` label (`c059b5a`; tool and model
+  not documented), and added `tests/test_audit.py` (5 tests, mocked
+  `query`); merged in `cf5cb31`. Reviewed this report at `1cc391c` with a
+  fresh **Grok 4.7** general subagent following
+  `.claude/agents/leakage-auditor.md`: no changes requested (`4d004fd`).
 - **ChatGPT (OpenAI):** planning, explanations, and methodological
   suggestions outside the repository; adopting or rejecting each was a
   human decision.
@@ -171,15 +151,15 @@ Grok 4.7 (see below), and ChatGPT was used for planning outside the repo.
   PostToolUse leakage hook, the starter `/new-feature` skill, and our
   `/seed-fault` skill.
 - **Claude Opus 5.5 via the Agent SDK** (`agent/audit.py`,
-  `AUDIT_MODEL=opus`): audited this repo.
+  `AUDIT_MODEL=opus`): audited this repo, initially and finally.
 
 **Agent-generated files and functions** (Claude Opus 5.5 via Claude Code;
 reviewed before each commit):
 
-- `src/features.py`: the `cnt_std_7` line, and `WEEK_DAYS` replacing the literal 7
-- `src/config.py`: `WEEK_DAYS`, the raw-column classification sets,
-  `RAW_SHA256`, and the two target-experiment output paths
-- `src/ingest.py`: `file_sha256()` and the checksum check in `load_raw()`
+- `src/features.py`: the `cnt_std_7` line and `WEEK_DAYS` for the literal
+  7; `src/config.py`: `WEEK_DAYS`, the raw-column classification sets,
+  `RAW_SHA256`, the two target-experiment output paths; `src/ingest.py`:
+  `file_sha256()` and the checksum check in `load_raw()`
 - `src/train.py`: `reconstruct_from_change()`, `_target_comparison()`,
   `validation_target_experiment()`, `final_target_test()`,
   `markdown_table()`, and the two flags
@@ -195,29 +175,28 @@ reviewed before each commit):
 
 - What to predict: the assignment's daily `cnt` (target line)
 - Which columns to exclude, for three different reasons (starter lines and
-  column-classification line):
-  - **target leakage:** `casual` and `registered` (they sum exactly to `cnt`)
-    and `cnt` itself
-  - **unverified historical lag:** `cnt_2d_bfr`, a two-day lag shipped with
-    the mirror whose alignment we could not check. It is not leakage.
-  - **modeling reasons:** the time indexes `instant`, `yr`,
-    `days_since_2011`, and the redundant calendar labels `season`, `mnth`,
-    `weekday`
-- How to split: 2011 / H1 2012 / H2 2012 by date (starter line)
-- Which baselines: mean and persistence with every score (starter line)
-- Keep `cnt_std_7` on ridge's validation gain, reporting hgb's drop (KEEP line)
-- Select ridge and close modeling (modeling-closed line)
-- Run the daily-change target as the single Exercise 4 experiment (plan line)
-- Plan the final evaluation before running it (final-evaluation plan line)
-- Detect raw-data overwrites with a checksum (fault-4 and checksum lines)
-- Use hosted Opus 5.5 instead of the local model (agent-backend lines)
+  column-classification line): **target leakage**, `casual` and
+  `registered` (they sum exactly to `cnt`) and `cnt` itself; an
+  **unverified historical lag**, `cnt_2d_bfr`, shipped with the mirror,
+  whose alignment we could not check (not leakage); and **modeling
+  reasons**, the time indexes `instant`, `yr`, `days_since_2011` and the
+  redundant calendar labels `season`, `mnth`, `weekday`
+- How to split: 2011 / H1 2012 / H2 2012 by date; which baselines: mean
+  and persistence with every score (starter lines)
+- Keep `cnt_std_7` on ridge's validation gain, reporting hgb's drop (KEEP
+  line); select ridge and close modeling (modeling-closed line)
+- Run the daily-change target as the single Exercise 4 experiment (plan
+  line); plan the final evaluation before running it (final-evaluation
+  plan line)
+- Detect raw-data overwrites with a checksum (fault-4 and checksum lines);
+  use hosted Opus 5.5 instead of the local model (agent-backend lines)
 - Whether the answer is believable: as a reproducible comparison with
   observed weather, yes; as an operational forecast, untested
   (believability line)
 
-### SDK audit of our repo: auditor's wording vs our assessment
+### SDK audits of our repo: auditor's wording vs our assessment
 
-Run with `env AUDIT_MODEL=opus python agent/audit.py . --out
+**Initial audit.** Run with `env AUDIT_MODEL=opus python agent/audit.py . --out
 reports/audit.jsonl` on `8450800`, 2026-11-24. That output is kept
 verbatim as `reports/audit_initial_8450800.jsonl`. Its summary fields: `"leakage": "none"`,
 `"temporal_ok": true`, `"baseline_reported": true`, `"reproducible":
@@ -243,3 +222,12 @@ true`, `"confidence": "high"`.
    suite ran."
    **Our assessment: cosmetic, fixed.** README now says `make test` runs
    the verification suite, with no count, and describes the hosted setup.
+
+**Final audit.** Rerun with the same command and `AUDIT_MODEL=opus` on
+`28572c4` (final `master` before this closeout), 2026-11-24 18:00 -0800.
+`reports/audit.jsonl` is committed as generated: `"leakage": "none"`,
+`"temporal_ok"`, `"baseline_reported"` and `"reproducible"` all `true`,
+`"confidence": "high"`, `"findings": []`; 0 flagged, 0 errors.
+**Our assessment:** consistent with the initial verdict. The empty
+findings list does not remove the observed-weather limitation, which
+still applies; the README drift had been fixed before this run.

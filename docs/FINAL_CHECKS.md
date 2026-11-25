@@ -81,5 +81,64 @@ The control reproduces the hash Issac Roy observed on Windows (`docs/AUDIT.md`, 
 
 ## Not covered here
 
-- `REPORT.md` length is estimated, not rendered (no PDF engine on this machine): 1,909 words in five `##` sections, about 3.6 pages.
+- `REPORT.md` length is estimated, not rendered (no PDF engine on this machine): 1,909 words in five `##` sections, about 3.6 pages. **Superseded** by the rendered check in "Closeout documentation checks" below.
 - The leftover clones in `/tmp/fresh-20261124-172131/` were not deleted.
+
+## Closeout documentation checks
+
+Run 2026-11-24 on `master` in the working copy by Yash Tandon (commands run through Claude Code, Claude Opus 5.5). Documentation-only: no experiment, SDK audit, or peer review was run in this step.
+
+### Final SDK audit
+
+| Field | Value |
+|---|---|
+| Command (fish history, 18:00:17 -0800) | `source .venv/bin/activate.fish; env AUDIT_MODEL=opus python agent/audit.py . --out reports/audit.jsonl` |
+| Audited commit | `28572c4` (`master` HEAD; `reports/audit.jsonl` was the only uncommitted change afterwards) |
+| Output | `reports/audit.jsonl`, written 18:00:57, sha256 `7197d5a670c07db5c9d350a17bbe1bdd36f53a7f8e7e243a1168091b49f08387`, committed as generated in `db238a6` (`git show db238a6:reports/audit.jsonl \| sha256sum` matches) |
+| Result | 0 flagged, 0 errors; `"leakage": "none"`, `temporal_ok` / `baseline_reported` / `reproducible` true, `"confidence": "high"`, `"findings": []` |
+| Initial audit archive | `reports/audit_initial_8450800.jsonl`, sha256 `7154daa1...3f152`, byte-identical to the pre-closeout `reports/audit.jsonl` (`diff` exit 0); its two findings are unchanged |
+
+### Seeded-fault output
+
+Every historical record was checked against the test source and suite size at its recorded commit (`git show <commit>:tests/test_leakage.py`, `git grep '^def test_' <commit> -- tests`). All records are kept unchanged, including counts and timings.
+
+| Record (commit) | Failing test at that commit | Pasted line | Line at commit | Pasted totals | Tests at commit | Same assertion in final tests? |
+|---|---|---|---|---|---|---|
+| Feature test before implementation (`e21af14`) | `test_rolling_std_excludes_today` | 74 | 74 | 1 failed, 14 passed | 15 | yes (now line 75) |
+| forbidden-column (`4f3703c`) | `test_no_forbidden_features` | 31 | 31 | 1 failed, 18 passed | 19 | yes (line 31) |
+| rolling-leakage (`6f69ea5`) | `test_rolling_mean_excludes_today`, pre-hardening `if all(...)` form | 57 | 57 | 1 failed, 18 passed | 19 | no: hardened in `7d64596`; same values 4389.0 vs 4414.857142857143 |
+| weather-guard (`a0d7ab1`) | `test_unknown_weather_label_is_rejected` | 82 | 82 | 1 failed, 18 passed | 19 | yes (now line 83) |
+| rolling-leakage recheck (`eae3d3e`, from `7d64596`) | hardened `test_rolling_mean_excludes_today` | 58 | 58 | 1 failed, 20 passed | 21 | yes (line 58) |
+| Fault 4, Bash `cp` (`b080d81`) | none: suite stayed green | n/a | n/a | 19 passed | 19 | n/a; now caught by the two checksum tests |
+
+Each commit adds its own `docs/SEEDED_FAULTS.md` section. Line numbers below the rolling-mean test moved down by one when `7d64596` added the window-completeness assertion. The final suite has 27 tests, so a rerun today would print different totals; the records show what ran at the time.
+
+### Decision-commit cross-check
+
+`git blame docs/DECISIONS.md` against `git log`: every decision line has a commit. Commits without their own line, and the Exercise 4 plan committed with its result (`05ea1ed`), are listed in `docs/DECISIONS.md` ("decision-commit cross-check") and were not back-filled.
+
+### `CLAUDE.md`
+
+`wc -l < CLAUDE.md`: 48. Added the `cnt_std_7` rule (seven prior calendar days, `ddof=0`); replaced the growth/extrapolation gotcha with "untested explanation; the headline follows the measured baseline comparisons"; folded the single-stage `make` lines into `make all`.
+
+### `REPORT.md` rendered length
+
+Headless Chrome could not start (WSL interop: `UtilAcceptVsock ... accept4 failed 110`), and the local groff has no `ms` macros or PDF device. Rendered instead with pandoc 3.1.3 (`-t typst`) and typst 0.15.2 (PyPI wheel in a throwaway venv under `/tmp`, not a project dependency). Settings: US Letter, 0.75 in margins, 11 pt body and tables, justified, Libertinus Serif. Pages were counted with a typst `counter(page).final()` query, and the PDFs were inspected visually.
+
+| Version | Words | Default leading (0.65em) | Word-like leading (0.9em) |
+|---|---|---|---|
+| Before closeout (`28572c4`) | 2,007 | 4 pages, last page nearly full | **5 pages**, matching ChatGPT's 5-page sample at 11 pt / 0.75 in |
+| Final | 1,888 | 4 pages, last page about half full | 4 pages, last page about three-quarters full |
+
+Trimmed: repeated observed-weather qualifications (stated once at the top and argued in Exercise 5), the wrapped "after (15, + cnt_std_7)" table labels (the definition stays in the text), and the attribution lists. Kept: exactly five `##` sections, all 8 Results rows and the Exercise 4 table, every number (a script comparing the decimal numbers in `REPORT.md` before and after found none added or dropped), attribution, and the verbatim auditor text with our assessments. Added: the final-audit assessment. In the much wider DejaVu Serif, the final text still runs to 5 pages at default leading, so readers should use a standard serif or sans font.
+
+### Unchanged by the closeout
+
+| Check | Result |
+|---|---|
+| `git diff --stat 28572c4 -- src tests data agent Makefile requirements.txt .claude reports/metrics.json reports/metrics_before_feature.json reports/target_transform_validation.json reports/target_transform_final_test.json reports/audit_initial_8450800.jsonl` | empty |
+| `sha256sum data/raw/bike_daily.csv` | `a6bed157...b0ad9dc` = `RAW_SHA256` |
+| `sha256sum reports/metrics.json` | `4df4eb95...460dde` (unchanged) |
+| `python -m pytest tests/ -q` | `27 passed in 2.37s` |
+
+Changed files in the closeout: `reports/audit.jsonl` (`db238a6`), then `CLAUDE.md`, `REPORT.md`, `docs/DECISIONS.md`, `docs/RUBRIC_CHECKLIST.md`, and this file.

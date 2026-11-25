@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, `final-evaluation-report` merged into `master` (`edd74cf`); fresh-clone reproduction passed (`docs/FINAL_CHECKS.md`).
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, submission closeout on `master`: final SDK audit (`db238a6`), `CLAUDE.md` review, fault-output and decision-commit cross-checks, rendered report length (`docs/FINAL_CHECKS.md`, "Closeout documentation checks").
 
 Each criterion has two boxes:
 
@@ -12,13 +12,13 @@ Each criterion has two boxes:
 
 | # | Category | Points | Status |
 |---|---|---|---|
-| 1 | Reproducible repository | 15 | Partly done |
-| 2 | `CLAUDE.md` | 10 | Partly done |
-| 3 | Verification suite | 25 | Feature, contract, weather-guard, checksum and hardened rolling-mean tests; all 4 faults recorded (fault 4 left the pre-defense suite green) |
-| 4 | Results with baselines | 20 | Final evaluation run once (`9315d78`); `REPORT.md` final: all 8 rows, headline, Exercises 4-5. Reciprocal review found no issue that changes a number (`docs/AUDIT.md`, `1cc391c`) |
-| 5 | Structural enforcement | 10 | Hook fired automatically on faults 1-3; did not fire on fault 4 (Bash), as the `Edit\|Write` matcher predicts. Fault-4 catch (checksum in `load_raw()`) implemented and shown in an isolated copy |
-| 6 | Agent configuration | 10 | `/seed-fault` written, all three arguments run. SDK audit of our repo run and committed (`reports/audit.jsonl`). `agent/audit.py` isolates `Exception` only; cancellation still propagates (`tests/test_audit.py`, 5 tests). Peer review of Issac Roy's `sdk-audit` closed in `docs/AUDIT.md` (CHANGES REQUESTED on `a38f682`, APPROVED WITH DOCUMENTED LIMITATIONS on `c059b5a`) and merged into `master` (`cf5cb31`). Reciprocal review of Yash's `final-evaluation-report` recorded (`docs/AUDIT.md`, `1cc391c`, no changes requested) |
-| 7 | Decisions and attribution | 10 | Decision log current; `REPORT.md` Attribution final: both contributors, both peer reviews, and their tools/models (Opus 5.5 via Claude Code/SDK; Grok 4.7 via OpenCode and a Grok 4.7 subagent; ChatGPT). Commit/decision cross-check pending |
+| 1 | Reproducible repository | 15 | Done. Fresh clone of `edd74cf`: `make all` byte-identical `metrics.json`, 27 passed, 8/8 report rows match (`docs/FINAL_CHECKS.md`); closeout changed no source, test, raw data or metrics file |
+| 2 | `CLAUDE.md` | 10 | Done. 48 lines, line-by-line review finished at closeout: `cnt_std_7` rule added, untested growth/extrapolation gotcha replaced, redundant lines removed |
+| 3 | Verification suite | 25 | Done. 27 tests; all 4 faults recorded (fault 4 left the pre-defense suite green); historical red outputs checked against the test source and line numbers at their recorded commits |
+| 4 | Results with baselines | 20 | Done. Final evaluation run once (`9315d78`); `REPORT.md` final, all 8 rows, headline led by the measured baseline comparisons, Exercises 4-5 |
+| 5 | Structural enforcement | 10 | Done. Hook fired automatically on faults 1-3; did not fire on fault 4 (Bash), as the `Edit\|Write` matcher predicts. Fault-4 catch (checksum in `load_raw()`) implemented and shown in an isolated copy, not on the canonical file |
+| 6 | Agent configuration | 10 | Done. `/seed-fault` run with all three arguments. SDK audit run twice: initial on `8450800` (2 findings, archived as `reports/audit_initial_8450800.jsonl`), final on `28572c4` (`findings=[]`, `db238a6`). Peer review of Issac Roy's `sdk-audit` and his reciprocal review recorded in `docs/AUDIT.md` |
+| 7 | Decisions and attribution | 10 | Done, with recorded gaps. `REPORT.md` Attribution final. Decision-commit cross-check finished: every decision line has a commit; commits without their own decision line, and the Exercise 4 plan committed together with its result, are listed in `docs/DECISIONS.md` |
 
 ## 1. Reproducible repository (15)
 
@@ -41,10 +41,10 @@ Each criterion has two boxes:
 | [x] | [ ] | Split rule | `CLAUDE.md` "Never split this data randomly" |
 | [x] | [ ] | Both baselines (mean and persistence) | `CLAUDE.md` "Report the mean baseline **and** the persistence baseline" |
 | [x] | [x] | The command that reproduces the headline number, named as such | `CLAUDE.md` Commands: "`make all` ... reproduces the headline metrics in `reports/metrics.json`". **Verified:** `make all` reproduced `metrics.json` byte for byte (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
-| [ ] | [ ] | Rule for our feature, if needed | Not decided |
+| [x] | [ ] | Rule for our feature, if needed | `CLAUDE.md` Non-negotiable rules: `cnt_std_7` is the population std (`ddof=0`) over the seven prior calendar days, d-7..d-1 (closeout) |
 | [x] | [ ] | Name of our custom skill | `CLAUDE.md` Commands: `/seed-fault <forbidden-column\|rolling-leakage\|weather-guard>` |
-| [x] | [x] | Under 60 lines | 48 lines at this checkpoint (added the checksum-mismatch gotcha). **Verified:** 48 lines (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
-| [ ] | [ ] | Every line changes agent behavior (the grader deletes lines one at a time) | Not reviewed |
+| [x] | [x] | Under 60 lines | 48 lines after the closeout review (`wc -l`, `docs/FINAL_CHECKS.md` "Closeout documentation checks"); also 48 in the fresh clone of `edd74cf` |
+| [x] | [ ] | Every line changes agent behavior (the grader deletes lines one at a time) | Reviewed at closeout: the three single-stage `make` lines are folded into the `make all` line; the `FORBIDDEN` rule no longer lists a partial set of excluded columns; the gotcha that called growth/extrapolation the headline is replaced by "untested explanation; the headline follows the measured baseline comparisons" (`docs/DECISIONS.md`, CLAUDE.md review). Verified stays open: only the grader's deletion test decides it |
 | [x] | n/a | Changes recorded in `DECISIONS.md` | Tracker line, see `docs/DECISIONS.md` |
 
 ## 3. Verification suite (25)
@@ -63,7 +63,7 @@ Each criterion has two boxes:
 | [x] | [ ] | Fault 2 (`.shift(1)` removed from `cnt_roll_7`): real red output pasted | `docs/SEEDED_FAULTS.md` "Fault: rolling-leakage" > "Red test output": `FAILED tests/test_leakage.py::test_rolling_mean_excludes_today`, `1 failed, 18 passed`, `exit=2`. Rechecked against the hardened test in "Fault: rolling-leakage (post-hardening recheck)": still red |
 | [x] | [ ] | Fault 3 (`raise` removed from the weather encoder): real red output pasted | `docs/SEEDED_FAULTS.md` "Fault: weather-guard" > "Red test output": `FAILED tests/test_leakage.py::test_unknown_weather_label_is_rejected` (`DID NOT RAISE ValueError`), `1 failed, 18 passed`, `exit=2`. Only that test, added in `6fb1c66`, catches this fault |
 | [x] | [ ] | Fault 4 (`cp` into `data/raw/` from Bash): what happened, recorded | `docs/SEEDED_FAULTS.md` "Fault 4: Bash raw-data copy": `cp exit=0` (not denied), hash `a6bed157...` -> `cae60e1c...`, 1-byte diff, **`make test` stayed green** (`19 passed`, `exit=0`), no automatic hook feedback, restored and re-verified |
-| [ ] | [ ] | Pasted output matches what the final tests print | Check after all faults |
+| [x] | [x] | Pasted output matches what the final tests print | Checked at closeout (`docs/FINAL_CHECKS.md`, "Seeded-fault output"). Each fault commit (`4f3703c`, `6f69ea5`, `a0d7ab1`, `b080d81`, recheck `eae3d3e`) adds its own record. Each pasted failing assertion matches the test source and line number at its commit, and its `1 failed, 18 passed` / `1 failed, 20 passed` totals match the 19- and 21-test suites. The forbidden-column, weather-guard and post-hardening rolling assertions are identical to the final `tests/test_leakage.py`. The original rolling-leakage output shows the pre-hardening `if all(...)` test, as it should. Final line numbers below that test are one higher since `7d64596` (weather 82 -> 83), and the suite is now 27 tests. Historical outputs, counts and timings kept unchanged |
 
 ## 4. Results with baselines (20)
 
@@ -92,8 +92,8 @@ Each criterion has two boxes:
 | [x] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | `.claude/skills/seed-fault/SKILL.md` (uses `$ARGUMENTS`, `disable-model-invocation: true`). Created in `6fb1c66`, corrected in `040ee64`. **All three arguments run:** `forbidden-column` (`4f3703c`), `rolling-leakage` (`6f69ea5`), `weather-guard` (`a0d7ab1`). On weather-guard the `Edit` included one unchanged context line, but the net diff was exactly the required 2 deletions and 0 additions. **Real uses:** `/seed-fault rolling-leakage` and `/seed-fault weather-guard` ran on the current text and produced "Fault: rolling-leakage" (`6f69ea5`) and "Fault: weather-guard". Earlier, `/seed-fault forbidden-column` produced the "Fault: forbidden-column" record in `docs/SEEDED_FAULTS.md` (`4f3703c`). The table heading that `$ARGUMENTS` was substituting into was fixed afterwards (text only). Verified stays unticked for review: on weather-guard the agent added a context line to the `Edit` strings, so the table's literal strings for that row were not used as-is (net diff still matched; see that record). (`.claude/skills/run-pipeline/` is still an empty, untracked directory) |
 | [x] | [ ] | Starter `new-feature` skill kept | `.claude/skills/new-feature/SKILL.md` |
 | [x] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | `docs/AUDIT.md`: shared repo URL; Issac Roy's `sdk-audit` reviewed twice (`a38f682` CHANGES REQUESTED, `c059b5a` APPROVED WITH DOCUMENTED LIMITATIONS), each with fenced verbatim `leakage-auditor` output and a separate reviewer verdict. Accepted limitations: a symlink-loop or unresolvable path aborts the batch; interrupted runs lose rows. Merged into `master` in `cf5cb31`. Reciprocal review of Yash's `final-evaluation-report` @ `1cc391c` is in `docs/AUDIT.md` (no changes requested; not the Claude subagent, because credits were exhausted) |
-| [x] | [ ] | `reports/audit.jsonl` from `python agent/audit.py . --out reports/audit.jsonl` | Committed exactly as generated (sha256 `7154daa1...`); the same bytes are preserved as `reports/audit_initial_8450800.jsonl`, which `REPORT.md` cites, so a later run may replace `reports/audit.jsonl`, from `env AUDIT_MODEL=opus python agent/audit.py . --out reports/audit.jsonl` on `8450800`, 2026-11-24 13:43:54 -0800 (`docs/DECISIONS.md`, SDK audit run). Has every schema field; `findings` has 2 entries |
-| [x] | [ ] | If the auditor flags our repo: fix it, or argue back in `REPORT.md` | Leakage `none`. Both findings answered in the `REPORT.md` draft (Attribution > "SDK audit of our repo"): observed weather accepted as a substantive limit and stated; README test count fixed (cosmetic) |
+| [x] | [x] | `reports/audit.jsonl` from `python agent/audit.py . --out reports/audit.jsonl` | **Final:** `env AUDIT_MODEL=opus python agent/audit.py . --out reports/audit.jsonl` on `28572c4`, 2026-11-24 18:00:17 -0800, committed exactly as generated in `db238a6` (sha256 `7197d5a6...`): 0 flagged, 0 errors, leakage `none`, `findings=[]`. **Initial:** same command on `8450800`, 13:43:54 -0800, 2 findings, preserved byte for byte as `reports/audit_initial_8450800.jsonl` (sha256 `7154daa1...`) (`docs/DECISIONS.md`, both SDK audit lines). Every schema field present in both |
+| [x] | [ ] | If the auditor flags our repo: fix it, or argue back in `REPORT.md` | Leakage `none` in both runs. The initial run's two findings are answered in `REPORT.md` (Attribution > "SDK audits of our repo"): observed weather accepted as a substantive limit and stated; README test count fixed (cosmetic). The final run's empty findings are assessed there too: the observed-weather limit still applies |
 
 ## 7. Decisions and attribution (10)
 
@@ -104,7 +104,7 @@ Each criterion has two boxes:
 | [x] | [ ] | `REPORT.md` **Attribution**: first line names the model and size and whether we switched (Sonnet 5.5 planned, Opus 5.5 used, see `b033c19`) | Final. Names Opus 5.5 for Yash's Claude Code, SDK and peer-review work, ChatGPT for planning, Grok 4.7 via OpenCode for `a38f682`, and the Grok 4.7 subagent for Issac's reciprocal review. Issac Roy's credit confirmed against the merged `docs/DECISIONS.md` entry (`a38f682`: OpenCode with Grok 4.7; tool for `c059b5a` not documented); `sdk-audit` merged in `cf5cb31` |
 | [x] | [ ] | Attribution list: files and functions the agent generated | `REPORT.md` Attribution |
 | [x] | [ ] | Attribution list: our decisions, each traced to a `DECISIONS.md` line | `REPORT.md` Attribution; the target and believability lines are in `docs/DECISIONS.md` |
-| [ ] | [ ] | Every decision has a commit and every commit has a decision | Check at the end |
+| [x] | [ ] | Every decision has a commit and every commit has a decision | Cross-checked at closeout (`git blame docs/DECISIONS.md` against `git log`). Every decision line has a commit. Not every commit has its own line: `e21af14`, the fault runs `4f3703c`/`6f69ea5`/`a0d7ab1`/`eae3d3e`, `226ddae`, `1cc391c`, `6dd265e`, `9df6f70`, `4d004fd`, `cf5cb31`, `edd74cf`. The Exercise 4 plan was committed with its result (`05ea1ed`). Listed in `docs/DECISIONS.md` (decision-commit cross-check) and not back-filled; Verified stays unticked |
 
 ## Remaining exercises
 
@@ -113,17 +113,17 @@ Each criterion has two boxes:
 - [x] Ex 3: audit a teammate; run `agent/audit.py` on our repo. **Our-repo SDK audit done** (`601400b`, `reports/audit.jsonl`). **Teammate audit done:** `docs/AUDIT.md` (Issac Roy's `sdk-audit`, approved with documented limitations on `c059b5a`, merged in `cf5cb31`). Issac's reciprocal review of Yash's `final-evaluation-report` is recorded in `docs/AUDIT.md` (`1cc391c`, no changes requested)
 - [x] Ex 4: target transformation. Validation (`reports/target_transform_validation.json`) and a single final test look (`reports/target_transform_final_test.json`, `--final-target-test` at `9315d78`): hgb_daily_change test R² 0.4761 / MAE 990.5, vs persistence 0.5099 / 840.1 and ridge 0.6356 / 840.3. Defensibility argued in `REPORT.md`. Committed `metrics.json` untransformed
 - [x] Ex 5: ridge vs persistence argued as one paragraph with numbers in `REPORT.md` (position: not to deploy over persistence for now; test average absolute error 840.3 vs 840.1, about 25.6% lower squared error). Final
-- [ ] Ex 6 (optional): second model size or hosted model, as a subsection under Attribution
+- [ ] Ex 6 (optional, **skipped**): second model size or hosted model. Not attempted; recorded in `docs/DECISIONS.md`
 
 ## Required `REPORT.md` structure (2-4 pages)
 
-Exactly these five `##` sections. Length estimated, not rendered (no PDF engine here): 1,909 words, about 3.6 pages.
+Exactly these five `##` sections. **Rendered, not estimated** (pandoc 3.1.3 -> typst 0.15.2, US Letter, 11 pt, 0.75 in margins; `docs/FINAL_CHECKS.md`): 4 pages at both typst's default leading and a Word-like 0.9em leading. Before the closeout trim, the 0.9em layout gave 5 pages, matching ChatGPT's 5-page sample. 1,888 words. This replaces the earlier 3.6-page estimate.
 
 - [x] **Results**: 8 rows, valid and test filled
-- [x] **Headline finding**: final
+- [x] **Headline finding**: final; leads with the measured baseline comparisons
 - [x] **Exercise 4: target transformation**: validation and final test, defensibility
 - [x] **Exercise 5: ridge vs persistence**: final
-- [x] **Attribution**: model line, contributors and tools, agent-generated list, decisions list, SDK audit assessment
+- [x] **Attribution**: model line, contributors and tools, agent-generated list, decisions list, assessments of the initial and final SDK audits
 
 ## Commit history (squashing all of it scores 0 on item 7)
 
@@ -133,7 +133,7 @@ Exactly these five `##` sections. Length estimated, not rendered (no PDF engine 
 | [x] | 2. Failing test for the feature | `e21af14` |
 | [x] | 3. Feature that makes the test pass | `b03f86b` (kept and refactored in `935ecdf`) |
 | [x] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | 4 of 4 distinct faults committed: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1`, Bash raw-data copy `b080d81`. Later rechecks (the post-hardening `rolling-leakage` recheck is recorded under its own heading) do not change the count of 4 |
-| [x] | 5. Audit run | SDK audit `601400b` (initial output kept as `reports/audit_initial_8450800.jsonl`); peer audit `9df6f70`, `050eaa0`; reciprocal review `4d004fd`. All on `master` (`cf5cb31`, `edd74cf`) |
+| [x] | 5. Audit run | SDK audit `601400b` (initial output kept as `reports/audit_initial_8450800.jsonl`), final SDK audit `db238a6`; peer audit `9df6f70`, `050eaa0`; reciprocal review `4d004fd`. All on `master` (`cf5cb31`, `edd74cf`) |
 | [x] | 6. Report | Draft `6dd265e`, final evaluation and complete draft `f572f37`, finalized in `60a7dd2` after the reciprocal review; merged into `master` in `edd74cf` |
 
 Setup commits `d85aa8a` and `b033c19` come between 1 and 2; each has a `DECISIONS.md` line.
