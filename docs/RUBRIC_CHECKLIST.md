@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, `sdk-audit` review changes implemented (repo identity, `Path(".")`, `Exception`-only docs); awaiting re-review.
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, `sdk-audit` review closed at `c059b5a`: APPROVED WITH DOCUMENTED LIMITATIONS, cleared to merge into `master`; reciprocal review pending.
 
 Each criterion has two boxes:
 
@@ -17,7 +17,7 @@ Each criterion has two boxes:
 | 3 | Verification suite | 25 | Feature, contract, weather-guard, checksum and hardened rolling-mean tests; all 4 faults recorded (fault 4 left the pre-defense suite green) |
 | 4 | Results with baselines | 20 | Modeling closed: ridge + `cnt_std_7` selected on validation; daily-change hgb kept as the Exercise 4 comparison. No report yet; final test interpretation pending |
 | 5 | Structural enforcement | 10 | Hook fired automatically on faults 1-3; did not fire on fault 4 (Bash), as the `Edit\|Write` matcher predicts. Fault-4 catch (checksum in `load_raw()`) implemented and shown in an isolated copy |
-| 6 | Agent configuration | 10 | `/seed-fault` written; all three arguments run (faults 1-3). `agent/audit.py` isolates `Exception` only (`tests/test_audit.py`); cancellation still propagates. First peer review recorded (`docs/AUDIT.md`, `a38f682`, CHANGES REQUESTED); requested identity and doc changes implemented, awaiting re-review |
+| 6 | Agent configuration | 10 | `/seed-fault` written; all three arguments run (faults 1-3). `agent/audit.py` isolates `Exception` only; cancellation still propagates (`tests/test_audit.py`, 5 tests). Peer review of Issac Roy's `sdk-audit` closed in `docs/AUDIT.md`: CHANGES REQUESTED on `a38f682`, then APPROVED WITH DOCUMENTED LIMITATIONS on `c059b5a`; cleared to merge. Reciprocal review of Yash's branch pending |
 | 7 | Decisions and attribution | 10 | Ongoing decision log; no Attribution section |
 
 ## 1. Reproducible repository (15)
@@ -91,7 +91,7 @@ Each criterion has two boxes:
 |---|---|---|---|
 | [x] | [ ] | Our own skill in `.claude/skills/<name>/SKILL.md`, for a workflow we repeated, taking `$ARGUMENTS` | `.claude/skills/seed-fault/SKILL.md` (uses `$ARGUMENTS`, `disable-model-invocation: true`). Created in `6fb1c66`, corrected in `040ee64`. **All three arguments run:** `forbidden-column` (`4f3703c`), `rolling-leakage` (`6f69ea5`), `weather-guard` (`a0d7ab1`). On weather-guard the `Edit` included one unchanged context line, but the net diff was exactly the required 2 deletions and 0 additions. **Real uses:** `/seed-fault rolling-leakage` and `/seed-fault weather-guard` ran on the current text and produced "Fault: rolling-leakage" (`6f69ea5`) and "Fault: weather-guard". Earlier, `/seed-fault forbidden-column` produced the "Fault: forbidden-column" record in `docs/SEEDED_FAULTS.md` (`4f3703c`). The table heading that `$ARGUMENTS` was substituting into was fixed afterwards (text only). Verified stays unticked for review: on weather-guard the agent added a context line to the `Edit` strings, so the table's literal strings for that row were not used as-is (net diff still matched; see that record). (`.claude/skills/run-pipeline/` is still an empty, untracked directory) |
 | [x] | [ ] | Starter `new-feature` skill kept | `.claude/skills/new-feature/SKILL.md` |
-| [ ] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | First peer review recorded: Issac Roy's `sdk-audit` @ `a38f682`, shared repo URL, fenced verbatim `leakage-auditor` output, and a separate reviewer verdict (CHANGES REQUESTED). Requested changes implemented in the follow-up: directory name wins over a model `"repo"` on both parse paths, `Path(".")` resolves, isolation docs are `Exception`-only, author Python is 3.12.1. Unticked until re-review |
+| [x] | [ ] | `docs/AUDIT.md`: teammate's repo URL, verbatim `/leakage-auditor` output, one-paragraph verdict kept separate from the auditor's findings | `docs/AUDIT.md`: shared repo URL; Issac Roy's `sdk-audit` reviewed twice (`a38f682` CHANGES REQUESTED, `c059b5a` APPROVED WITH DOCUMENTED LIMITATIONS), each with fenced verbatim `leakage-auditor` output and a separate reviewer verdict. Accepted limitations: a symlink-loop or unresolvable path aborts the batch; interrupted runs lose rows. Reciprocal review of Yash's branch pending |
 | [ ] | [ ] | `reports/audit.jsonl` from `python agent/audit.py . --out reports/audit.jsonl` | Not regenerated on this branch. The batch now returns an error record instead of aborting: `tests/test_audit.py::test_sdk_exception_keeps_the_other_repo` (mocked `query`, no API call). Planned command remains `env AUDIT_MODEL=opus python agent/audit.py . --out reports/audit.jsonl` (`docs/DECISIONS.md`) |
 | [ ] | [ ] | If the auditor flags our repo: fix it, or argue back in `REPORT.md` | Pending the audit |
 
@@ -110,7 +110,7 @@ Each criterion has two boxes:
 
 - [x] Ex 1: add one feature with `/new-feature`: `cnt_std_7`, kept (`e21af14`, `b03f86b`, `935ecdf`)
 - [x] Ex 2: four seeded faults. Done: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1` (each 2 repair tool calls / 1 repair cycle, which are lower bounds, not conversational turns); fault 4, the manual Bash raw-data copy, recorded with what would catch it
-- [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo. Batch failure isolation is in `agent/audit.py` and `tests/test_audit.py`; the self-audit file is not regenerated here. First peer review recorded in `docs/AUDIT.md` (CHANGES REQUESTED on `a38f682`); requested changes implemented, awaiting re-review
+- [ ] Ex 3: audit a teammate; run `agent/audit.py` on our repo. **Teammate audit done:** `docs/AUDIT.md` (Issac Roy's `sdk-audit`, approved with documented limitations on `c059b5a`). **Pending:** the `agent/audit.py` self-audit (`reports/audit.jsonl` not regenerated) and Issac's reciprocal review
 - [ ] Ex 4: target transformation so hgb can compete. **Validation part done:** `python -m src.train --validation-target-experiment` -> `reports/target_transform_validation.json`. hgb predicting the daily change: valid R^2 0.5642 / MAE 885.8, vs ordinary hgb 0.0977 / 1381.6, persistence 0.4507 / 900.6, ridge 0.7224 / 700.4. **Interpretation recorded** (`docs/DECISIONS.md`, "refines the Exercise 4 result line"): improves hgb but does not establish the cause of its original weakness; small MAE gain over persistence with no uncertainty estimate; assumes yesterday's count and same-day observed weather are known. **Pending:** the single end-of-project test look (reported as such) and the REPORT.md section. Committed `metrics.json` stays untransformed
 - [ ] Ex 5: one paragraph with numbers on whether ridge is worth deploying over persistence
 - [ ] Ex 6 (optional): second model size or hosted model, as a subsection under Attribution
