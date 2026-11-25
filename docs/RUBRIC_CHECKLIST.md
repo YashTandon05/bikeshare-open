@@ -1,7 +1,7 @@
 # Rubric checklist
 
 Progress tracker for the [Methodology 07 (open) assignment](https://dsc-capstone.org/2026-27/assignments/methodology/07-open/).
-Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, `REPORT.md` finalized after Issac Roy's reciprocal review (`4d004fd`, no changes requested); `.gitattributes` LF checkout fix; initial SDK output preserved as `reports/audit_initial_8450800.jsonl`.
+Update after every checkpoint (see `CLAUDE.md`). Last updated: 2026-11-24, `final-evaluation-report` merged into `master` (`edd74cf`); fresh-clone reproduction passed (`docs/FINAL_CHECKS.md`).
 
 Each criterion has two boxes:
 
@@ -24,14 +24,14 @@ Each criterion has two boxes:
 
 | Impl | Verified | Criterion | Evidence |
 |---|---|---|---|
-| [x] | [ ] | `make all` runs data, features, then train | `Makefile` target `all: data features train` |
-| [x] | [ ] | `reports/metrics.json` comes from `make all` on the **final** code | `make all` at `9315d78` (final evaluation) reproduced the committed file byte for byte, sha256 `4df4eb95...` (`docs/DECISIONS.md`, final evaluation run). Verified waits for the fresh-clone run |
-| [x] | [ ] | Seeds fixed | `src/train.py:52` `HistGradientBoostingRegressor(random_state=0)`; ridge is deterministic |
-| [x] | [ ] | Dependencies pinned, including any added ones | `requirements.txt` (nothing added so far) |
-| [x] | [ ] | `.gitignore` no longer ignores `reports/` but still ignores `data/processed/`, `.venv/`, caches | `.gitignore`, changed in `d85aa8a` |
-| [x] | [ ] | `data/processed/`, `.venv/`, `__pycache__/`, `.pytest_cache/` not committed | `git ls-files` shows none at `935ecdf` |
-| [x] | [ ] | `data/raw/bike_daily.csv` unchanged (sha256 starts `a6bed1577f6e4de5`) | Full hash `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc` confirmed after the fault-4 restore (`b080d81`), and again before and after the isolated checksum demonstration (`docs/SEEDED_FAULTS.md` "Fault 4 defense" > "Canonical file"). `load_raw()` now enforces it as `RAW_SHA256`. Verified waits for a fresh-clone check at submission |
-| [ ] | [ ] | Fresh clone, `pip install -r requirements.txt`, `make all`, then diff with committed metrics and the `REPORT.md` table | Pending. The SDK auditor's pipeline rerun reproduced `metrics.json` byte for byte, but in the working copy, not a fresh clone |
+| [x] | [x] | `make all` runs data, features, then train | `Makefile` target `all: data features train`. **Verified:** exit 0, ingest -> features -> train (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
+| [x] | [x] | `reports/metrics.json` comes from `make all` on the **final** code | `make all` at `9315d78` (final evaluation) reproduced the committed file byte for byte, sha256 `4df4eb95...` (`docs/DECISIONS.md`, final evaluation run). Verified waits for the fresh-clone run. **Verified:** regenerated file byte-identical, sha256 `4df4eb95...` (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
+| [x] | [x] | Seeds fixed | `src/train.py:65` `HistGradientBoostingRegressor(random_state=0, max_iter=300)`; ridge is deterministic. **Verified:** byte-identical rerun (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
+| [x] | [x] | Dependencies pinned, including any added ones | `requirements.txt` (nothing added so far). **Verified:** all six pinned with `==`; fresh `pip install -r requirements.txt` exit 0 (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
+| [x] | [x] | `.gitignore` no longer ignores `reports/` but still ignores `data/processed/`, `.venv/`, caches | `.gitignore`, changed in `d85aa8a`. **Verified:** `git check-ignore -v` (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
+| [x] | [x] | `data/processed/`, `.venv/`, `__pycache__/`, `.pytest_cache/` not committed | `git ls-files` shows none at `935ecdf`. **Verified:** none tracked after `make all` (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
+| [x] | [x] | `data/raw/bike_daily.csv` unchanged (sha256 starts `a6bed1577f6e4de5`) | Full hash `a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc` confirmed after the fault-4 restore (`b080d81`), and again before and after the isolated checksum demonstration (`docs/SEEDED_FAULTS.md` "Fault 4 defense" > "Canonical file"). `load_raw()` now enforces it as `RAW_SHA256`. Verified waits for a fresh-clone check at submission. **Verified:** sha256 `a6bed157...` = `RAW_SHA256`, also under `core.autocrlf=true` (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
+| [x] | [x] | Fresh clone, `pip install -r requirements.txt`, `make all`, then diff with committed metrics and the `REPORT.md` table | Done. The SDK auditor's pipeline rerun reproduced `metrics.json` byte for byte, but in the working copy, not a fresh clone. **Verified:** 27 passed; `metrics.json` byte-identical; 8/8 report rows match (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
 
 ## 2. `CLAUDE.md` (10)
 
@@ -40,10 +40,10 @@ Each criterion has two boxes:
 | [x] | [ ] | Forbidden columns | `CLAUDE.md` "Non-negotiable rules" |
 | [x] | [ ] | Split rule | `CLAUDE.md` "Never split this data randomly" |
 | [x] | [ ] | Both baselines (mean and persistence) | `CLAUDE.md` "Report the mean baseline **and** the persistence baseline" |
-| [x] | [ ] | The command that reproduces the headline number, named as such | `CLAUDE.md` Commands: "`make all` ... reproduces the headline metrics in `reports/metrics.json`" |
+| [x] | [x] | The command that reproduces the headline number, named as such | `CLAUDE.md` Commands: "`make all` ... reproduces the headline metrics in `reports/metrics.json`". **Verified:** `make all` reproduced `metrics.json` byte for byte (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
 | [ ] | [ ] | Rule for our feature, if needed | Not decided |
 | [x] | [ ] | Name of our custom skill | `CLAUDE.md` Commands: `/seed-fault <forbidden-column\|rolling-leakage\|weather-guard>` |
-| [x] | [ ] | Under 60 lines | 48 lines at this checkpoint (added the checksum-mismatch gotcha) |
+| [x] | [x] | Under 60 lines | 48 lines at this checkpoint (added the checksum-mismatch gotcha). **Verified:** 48 lines (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
 | [ ] | [ ] | Every line changes agent behavior (the grader deletes lines one at a time) | Not reviewed |
 | [x] | n/a | Changes recorded in `DECISIONS.md` | Tracker line, see `docs/DECISIONS.md` |
 
@@ -56,7 +56,7 @@ Each criterion has two boxes:
 | [x] | [ ] | Feature test checks a value on a named date against a hand-computed value from strictly earlier dates | 2011-02-01, expected 499.70 from the counts for Jan 25-31 |
 | [x] | [ ] | Unclassified-column test in `tests/test_contract.py` | `test_raw_columns_are_all_classified`, with the hand-typed `CLASSIFIED_RAW_COLS` in `src/config.py` (`935ecdf`) |
 | [x] | [ ] | Unknown-column rejection shown | `docs/SEEDED_FAULTS.md` "Unclassified raw column rejected": `AssertionError: unclassified raw columns: ['surge_index']` |
-| [x] | [ ] | `make test` passes | `22 passed in 1.71s` at the Exercise 4 checkpoint (adds `test_change_reconstruction_never_sees_todays_target`); `21 passed` at the checksum-defense checkpoint |
+| [x] | [x] | `make test` passes | `22 passed in 1.71s` at the Exercise 4 checkpoint (adds `test_change_reconstruction_never_sees_todays_target`); `21 passed` at the checksum-defense checkpoint. **Verified:** `27 passed` (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
 | [x] | [ ] | Raw-data checksum tests (temporary files; canonical CSV untouched) | `tests/test_contract.py::test_load_raw_accepts_trusted_bytes` PASSED, `::test_load_raw_rejects_fault4_alteration` PASSED (`docs/SEEDED_FAULTS.md` "Fault 4 defense" > "Unit tests") |
 | [x] | [ ] | `test_rolling_mean_excludes_today` cannot pass vacuously | The conditional skip is now an assertion that the reference window is complete (`tests/test_leakage.py`). PASSED in the same run. Post-hardening recheck done: `docs/SEEDED_FAULTS.md` "Fault: rolling-leakage (post-hardening recheck)". The window assertion passed, then the comparison failed (`4389.0` vs `4414.857142857143`), giving `1 failed, 20 passed`, `exit=2`. Automatic hook feedback appeared; manual diagnostic `exit=2`; 2 repair tool calls / 1 cycle. The original `6f69ea5` record is unchanged |
 | [x] | [ ] | Fault 1 (forbidden column in `feature_columns`): real red output pasted | `4f3703c`, `docs/SEEDED_FAULTS.md` "Fault: forbidden-column" > "Red test output": `FAILED tests/test_leakage.py::test_no_forbidden_features`, `1 failed, 18 passed`, `exit=2` |
@@ -72,7 +72,7 @@ Each criterion has two boxes:
 | [x] | [ ] | Metrics from before the feature kept | `reports/metrics_before_feature.json` (`d85aa8a`, never changed) |
 | [x] | [ ] | Feature's validation effect measured without using test scores | Ridge R² 0.6475 to 0.7224, hgb 0.2185 to 0.0977 (`b03f86b`, `docs/DECISIONS.md`) |
 | [x] | [ ] | Validation delta explained, including the negative one | `docs/DECISIONS.md` keep entry (`935ecdf`); hgb's drop reported, cause not yet found |
-| [x] | [ ] | `REPORT.md` **Results**: one 8-row table (4 models × before/after) with validation and test R² and MAE, matching `reports/metrics.json` exactly | Filled from `reports/metrics_before_feature.json` and `reports/metrics.json` by script. Re-check against the fresh-clone metrics |
+| [x] | [x] | `REPORT.md` **Results**: one 8-row table (4 models × before/after) with validation and test R² and MAE, matching `reports/metrics.json` exactly | Filled from `reports/metrics_before_feature.json` and `reports/metrics.json` by script. Re-check against the fresh-clone metrics. **Verified:** 8/8 rows equal the JSON values (fresh clone of `edd74cf`, `docs/FINAL_CHECKS.md`) |
 | [x] | [ ] | `REPORT.md` **Headline finding**: one paragraph with numbers, plus one sentence on the feature and the keep decision | Drafted: both baselines, ridge, hgb, `cnt_std_7` effect and keep decision, observed-weather qualification. Final |
 | [x] | [ ] | No sign the test set was used while iterating (`DECISIONS.md`, commits) | Evaluation-history and final-evaluation lines in `docs/DECISIONS.md`. The final look was planned before running, its code committed first (`9315d78`), and run once; no selection followed |
 
@@ -133,8 +133,8 @@ Exactly these five `##` sections. Length estimated, not rendered (no PDF engine 
 | [x] | 2. Failing test for the feature | `e21af14` |
 | [x] | 3. Feature that makes the test pass | `b03f86b` (kept and refactored in `935ecdf`) |
 | [x] | 4. Each seeded fault and its fix (or one commit per fault, with the fix in the message) | 4 of 4 distinct faults committed: forbidden-column `4f3703c`, rolling-leakage `6f69ea5`, weather-guard `a0d7ab1`, Bash raw-data copy `b080d81`. Later rechecks (the post-hardening `rolling-leakage` recheck is recorded under its own heading) do not change the count of 4 |
-| [ ] | 5. Audit run | SDK audit committed in `601400b` (branch `final-evaluation-report`, not yet on `master`). Peer audit committed in `9df6f70` and `050eaa0` (`docs/AUDIT.md`), on `master` via `cf5cb31`. Tick once this branch is merged |
-| [ ] | 6. Report | Draft `6dd265e`; complete draft in the final-evaluation commit on `final-evaluation-report`. Tick once it is merged and the conclusions are signed off |
+| [x] | 5. Audit run | SDK audit `601400b` (initial output kept as `reports/audit_initial_8450800.jsonl`); peer audit `9df6f70`, `050eaa0`; reciprocal review `4d004fd`. All on `master` (`cf5cb31`, `edd74cf`) |
+| [x] | 6. Report | Draft `6dd265e`, final evaluation and complete draft `f572f37`, finalized in `60a7dd2` after the reciprocal review; merged into `master` in `edd74cf` |
 
 Setup commits `d85aa8a` and `b033c19` come between 1 and 2; each has a `DECISIONS.md` line.
 
