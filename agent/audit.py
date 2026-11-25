@@ -141,6 +141,16 @@ REPORT_SCHEMA = {
 }
 
 
+def _repo_label(repo: Path) -> str:
+    # Path(".").name is empty; resolve so the label is the directory.
+    return repo.resolve().name
+
+
+def _with_repo(repo: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    # Label last, so a model-supplied "repo" cannot overwrite it.
+    return {**payload, "repo": _repo_label(repo)}
+
+
 async def audit_repo(repo: Path) -> dict[str, Any]:
     options = ClaudeAgentOptions(
         system_prompt=SYSTEM,
@@ -171,17 +181,35 @@ async def audit_repo(repo: Path) -> dict[str, Any]:
             final = message
 
     if final is None or final.is_error:
-        return {"repo": repo.name, "error": "run_failed",
-                "raw": (final.result or "")[:500] if final else ""}
+        raw = (final.result or "")[:500] if final else ""
+        return _with_repo(repo, {"error": "run_failed", "raw": raw})
     if final.structured_output is not None:
-        return {"repo": repo.name, **final.structured_output}
+        return _with_repo(repo, final.structured_output)
     try:
         # Belt and braces: small open-weight models do not always honour
         # the schema; fall back to parsing the final text.
-        return {"repo": repo.name, **json.loads((final.result or "").strip())}
+        return _with_repo(repo, json.loads((final.result or "").strip()))
     except json.JSONDecodeError:
         # Never let one malformed reply kill a 40-repo run.
-        return {"repo": repo.name, "error": "unparseable", "raw": (final.result or "")[:500]}
+        raw = (final.result or "")[:500]
+        return _with_repo(repo, {"error": "unparseable", "raw": raw})
+
+
+async def audit_many(repos: list[Path], concurrency: int) -> list[dict[str, Any]]:
+    sem = asyncio.Semaphore(concurrency)
+
+    async def bounded(repo: Path) -> dict[str, Any]:
+        async with sem:
+            try:
+                return await audit_repo(repo)
+            except Exception as exc:
+                # Exception only. Cancellation and KeyboardInterrupt still stop the batch.
+                detail = f"{type(exc).__name__}: {exc}"[:500]
+                record = _with_repo(repo, {"error": "exception", "raw": detail})
+                print(f"audit exception {record['repo']}: {detail}", file=sys.stderr)
+                return record
+
+    return list(await asyncio.gather(*(bounded(r) for r in repos)))
 
 
 async def main() -> None:
@@ -191,19 +219,17 @@ async def main() -> None:
     ap.add_argument("--concurrency", type=int, default=4)
     ns = ap.parse_args()
 
-    sem = asyncio.Semaphore(ns.concurrency)
-
-    async def bounded(repo: Path) -> dict[str, Any]:
-        async with sem:
-            return await audit_repo(repo)
-
-    results = await asyncio.gather(*(bounded(r) for r in ns.repos))
+    results = await audit_many(ns.repos, ns.concurrency)
     with ns.out.open("w") as fh:
         for row in results:
             fh.write(json.dumps(row) + "\n")
 
     flagged = sum(r.get("leakage") in {"suspected", "confirmed"} for r in results)
-    print(f"audited {len(results)} repos; {flagged} flagged -> {ns.out}", file=sys.stderr)
+    failed = sum("error" in r for r in results)
+    print(
+        f"audited {len(results)} repos; {flagged} flagged; {failed} errors -> {ns.out}",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":
