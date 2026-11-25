@@ -1,13 +1,8 @@
 # Bikeshare demand: methodology report
 
-> **Status: complete draft for team review.** Every number is copied from a
-> committed JSON file named next to it. The conclusions in *Headline
-> finding* and *Exercise 5* are **proposed** and await our sign-off.
-> Done since the draft: the peer `/leakage-auditor` review of Issac Roy's
-> `sdk-audit` (`docs/AUDIT.md`), approved with documented limitations and
-> merged into `master` (`cf5cb31`). Still pending: team review of this
-> report, Issac Roy's reciprocal review of this branch, and the
-> fresh-clone reproduction check.
+> Every number is copied from a committed JSON file named next to it. Both
+> peer reviews and the verbatim auditor output are in `docs/AUDIT.md`; the
+> fresh-clone reproduction is recorded in `docs/FINAL_CHECKS.md`.
 
 **Prediction-time assumption, applies throughout.** The weather inputs
 (`temp`, `atemp`, `hum`, `windspeed`, `weather`) are the day's *observed*
@@ -120,7 +115,7 @@ would not adopt it.
 
 ## Exercise 5: ridge vs persistence
 
-**Proposed position: on this evidence, ridge is not worth deploying over
+**Position: on this evidence, ridge is not worth deploying over
 persistence as a day-ahead forecaster for now.** On the 184 test days the
 two have essentially the same average absolute error, **840.3 vs 840.1**
 rides/day. Ridge's higher R² (**0.6356 vs 0.5099**) means about **25.6%
@@ -142,45 +137,41 @@ advantage and that advantage matters for the intended use.
 ## Attribution
 
 **Models:** Claude Opus 5.5 (`claude-opus-5-5`, hosted; size not
-published by Anthropic) for Yash Tandon's Claude Code work and the SDK
-audit. That was a switch from the planned Sonnet 5.5 and from the starter's
-local `bikeshare-coder` (`b033c19`, agent-backend lines in
-`docs/DECISIONS.md`). Other models: ChatGPT for planning outside the repo,
-and Grok 4.7 via OpenCode for Issac Roy's first `sdk-audit` commit (merged,
-see below). Not all team agent work used Opus.
+published by Anthropic) for Yash Tandon's Claude Code work, the SDK audit
+and Yash's peer review. That was a switch from the planned Sonnet 5.5 and
+from the starter's local `bikeshare-coder` (`b033c19`, agent-backend lines
+in `docs/DECISIONS.md`). Not all team agent work used Opus: Issac Roy used
+Grok 4.7 (see below), and ChatGPT was used for planning outside the repo.
 
 **Contributors and tools.**
 
 - **Yash Tandon:** made the methodological decisions below, including which
-  suggestions from ChatGPT and from the Claude agent to adopt or reject.
-  Reviewed every commit on this branch, ran the SDK audit, and approved or
-  denied agent actions.
+  suggestions from ChatGPT and the Claude agent to adopt or reject;
+  reviewed every commit, ran the SDK audit, and approved or denied agent
+  actions. Reviewed Issac's `sdk-audit` with Claude Opus 5.5 via Claude
+  Code and a fresh `/leakage-auditor` subagent per round: CHANGES REQUESTED
+  on `a38f682`, then APPROVED WITH DOCUMENTED LIMITATIONS on `c059b5a`, for
+  valid, resolvable repository directories (a path whose `resolve()`
+  raises still aborts the batch; an interrupted run still loses completed
+  rows; both accepted, not fixed).
+- **Issac Roy:** changed `agent/audit.py` so one ordinary SDK exception
+  becomes an error row instead of aborting the batch (`a38f682`, written in
+  **OpenCode with Grok 4.7**, per `docs/DECISIONS.md`), then made the
+  resolved directory name the authoritative `repo` label (`c059b5a`; its
+  tool and model are not documented), and added `tests/test_audit.py` (5
+  tests, mocked `query`). Merged in `cf5cb31`. Reviewed this report at
+  `1cc391c` with a fresh **Grok 4.7** general subagent following
+  `.claude/agents/leakage-auditor.md`, not Claude Code: no changes
+  requested (`4d004fd`).
 - **ChatGPT (OpenAI):** planning, explanations, and methodological
-  suggestions, used outside the repository. Its suggestions were inputs;
-  adopting or rejecting each was a human decision.
+  suggestions outside the repository; adopting or rejecting each was a
+  human decision.
 - **Claude Opus 5.5 via Claude Code**, interactively: wrote code, tests and
-  documentation drafts under Yash Tandon's direction. It used the starter's
+  documentation drafts under Yash Tandon's direction, using the starter's
   PostToolUse leakage hook, the starter `/new-feature` skill, and our
   `/seed-fault` skill.
 - **Claude Opus 5.5 via the Agent SDK** (`agent/audit.py`,
   `AUDIT_MODEL=opus`): audited this repo.
-- **Issac Roy** (`sdk-audit`, merged into `master` in `cf5cb31` and into
-  this branch): changed `agent/audit.py` so one ordinary SDK exception
-  becomes an error row instead of aborting the batch (`a38f682`), then,
-  after review, made the resolved directory name the authoritative `repo`
-  label (`c059b5a`). Issac also added `tests/test_audit.py` (5 tests, mocked
-  `query`, no API calls). Per the merged `docs/DECISIONS.md` entry,
-  `a38f682` was written in **OpenCode with Grok 4.7**, not Opus. The tool
-  and model for `c059b5a` are not documented in its commit or its
-  `docs/DECISIONS.md` line.
-- **Peer review of `sdk-audit`:** Yash Tandon, using Claude Opus 5.5 via
-  Claude Code and the starter's `/leakage-auditor` subagent (one fresh
-  invocation per review round). Verdicts and verbatim auditor output are in
-  `docs/AUDIT.md`. `a38f682`: CHANGES REQUESTED. `c059b5a`: APPROVED WITH
-  DOCUMENTED LIMITATIONS, for valid, resolvable repository directories.
-  A path whose `resolve()` raises (e.g. a symlink loop) still aborts the
-  batch, and an interrupted run still loses completed rows. Both are
-  accepted, not fixed.
 
 **Agent-generated files and functions** (Claude Opus 5.5 via Claude Code;
 reviewed before each commit):
@@ -227,8 +218,8 @@ reviewed before each commit):
 ### SDK audit of our repo: auditor's wording vs our assessment
 
 Run with `env AUDIT_MODEL=opus python agent/audit.py . --out
-reports/audit.jsonl` on `8450800`, 2026-11-24. `reports/audit.jsonl` is
-kept verbatim as generated. Its summary fields: `"leakage": "none"`,
+reports/audit.jsonl` on `8450800`, 2026-11-24. That output is kept
+verbatim as `reports/audit_initial_8450800.jsonl`. Its summary fields: `"leakage": "none"`,
 `"temporal_ok": true`, `"baseline_reported": true`, `"reproducible":
 true`, `"confidence": "high"`.
 
